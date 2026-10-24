@@ -7,6 +7,9 @@
     "node": ">=22"
   },
   "scripts": {
+    "dev": "node --watch src/index.js",
+    "start": "node src/index.js",
+    "test": "node scripts/test-setup.mjs && vitest run",
     "db:ensure": "node scripts/ensure-database.mjs",
     "db:health": "node scripts/db-health.mjs",
     "prisma:generate": "prisma generate",
@@ -17,10 +20,18 @@
   "dependencies": {
     "@prisma/adapter-pg": "7.10.1",
     "@prisma/client": "7.10.1",
+    "bcryptjs": "3.0.3",
+    "cookie-parser": "1.4.7",
     "dotenv": "18.0.9",
-    "pg": "8.23.1"
+    "express": "5.3.0",
+    "express-rate-limit": "8.7.1",
+    "jsonwebtoken": "9.0.3",
+    "pg": "8.23.1",
+    "zod": "4.6.7"
   },
   "devDependencies": {
-    "prisma": "7.10.1"
+    "prisma": "7.10.1",
+    "supertest": "7.1.4",
+    "vitest": "5.0.5"
   }
 }

@@ -1,0 +1,53 @@
+@import "tailwindcss";
+
+/*
+  Tokens from the dealt app sheet (Achromatic ledger, seed 1572927158).
+  The ground is the style's suggested ledger face: a blue-grey one level off
+  white. Chrome stays ink; #1d5fbf is reserved for the main data element.
+*/
+@theme {
+  --color-ground: #f2f4f7;
+  --color-surface: #ffffff;
+  --color-raised: #eeeeee;
+  --color-line: #e6e6e6;
+  --color-rule: #f0f0f0;
+  --color-control: #d4d4d4;
+  --color-ink: #0a0a0a;
+  --color-muted: #6b6b6b;
+  --color-primary: #141414;
+  --color-hue: #1d5fbf;
+  --color-positive: #2e7d32;
+  --color-negative: #c4242a;
+
+  --font-sans: "Geist", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, "Cascadia Mono", monospace;
+
+  --radius-card: 8px;
+  --radius-control: 6px;
+}
+
+body {
+  background-color: var(--color-ground);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-ink);
+  outline-offset: 2px;
+}
+
+/* Tabular figures wherever numbers appear (app-screens §9.1). */
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Loading state per app-screens §11: flat grey bars at the real size of the
+   value they stand in for. No shimmer. */
+.skeleton-bar {
+  background: var(--color-raised);
+  border-radius: 4px;
+}
