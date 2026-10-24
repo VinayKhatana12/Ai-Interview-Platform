@@ -123,11 +123,22 @@ model Answer {
   @@map("answers")
 }
 
+// Rubric verdict from the evaluation provider, kept as its own enum so the
+// score (a number) and the verdict (a category) stay honest together.
+enum EvaluationCorrectness {
+  CORRECT
+  PARTIALLY_CORRECT
+  INCORRECT
+
+  @@map("evaluation_correctness")
+}
+
 model Evaluation {
   id           String   @id @default(uuid()) @db.Uuid
   answerId     String   @unique @map("answer_id") @db.Uuid
   // 0–100, scale enforced in the service layer.
   score        Float
+  correctness  EvaluationCorrectness @default(PARTIALLY_CORRECT)
   feedback     String
   // Flexible lists from the LLM (e.g. ["Explained X clearly", ...]);
   // core scoring fields above stay typed.

@@ -14,3 +14,5 @@ export const startInterview = (id) => api(`/api/interviews/${id}/start`, { metho
 export const submitAnswer = (id, questionId, responseText) =>
   api(`/api/interviews/${id}/answers`, { method: 'POST', body: { questionId, responseText } })
 export const completeInterview = (id) => api(`/api/interviews/${id}/complete`, { method: 'POST' })
+export const getInterviewResults = (id) => api(`/api/interviews/${id}/results`)
+export const evaluateInterview = (id) => api(`/api/interviews/${id}/evaluate`, { method: 'POST' })

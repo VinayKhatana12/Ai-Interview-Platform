@@ -12,6 +12,7 @@
     "test": "node scripts/test-setup.mjs && vitest run",
     "db:ensure": "node scripts/ensure-database.mjs",
     "db:health": "node scripts/db-health.mjs",
+    "ai:check": "node scripts/ai-check.mjs",
     "prisma:generate": "prisma generate",
     "migrate": "prisma migrate dev",
     "migrate:status": "prisma migrate status",

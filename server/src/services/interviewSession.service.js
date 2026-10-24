@@ -12,6 +12,7 @@
 import { prisma } from "../db/prisma.js";
 import { HttpError } from "../utils/HttpError.js";
 import { generateQuestions } from "./questionGenerator.js";
+import { AiError } from "./ai/provider.js";
 
 // Extra seconds accepted after the deadline so slow networks or modest clock
 // skew never eats a candidate's answer. The view still shows the true expiry.
@@ -106,13 +107,28 @@ export async function startInterview(userId, interviewId) {
 
   const existingCount = await prisma.question.count({ where: { interviewId } });
   if (existingCount === 0) {
-    const questions = await generateQuestions({
-      roleTitle: interview.roleTitle,
-      experienceLevel: interview.experienceLevel,
-      difficulty: interview.difficulty,
-      topics: interview.topics,
-      questionCount: interview.questionCount,
-    });
+    let questions;
+    try {
+      questions = await generateQuestions({
+        roleTitle: interview.roleTitle,
+        experienceLevel: interview.experienceLevel,
+        difficulty: interview.difficulty,
+        topics: interview.topics,
+        questionCount: interview.questionCount,
+      });
+    } catch (err) {
+      // Provider failure is recoverable: nothing was persisted, the
+      // interview stays PENDING, and starting again retries generation.
+      // Typed AiErrors and unexpected provider crashes map to the same 503.
+      if (!(err instanceof AiError)) {
+        console.error("[question generation] unexpected failure:", err);
+      }
+      throw new HttpError(
+        503,
+        "GENERATION_FAILED",
+        "The AI question generator is unavailable right now. Try starting again in a moment.",
+      );
+    }
     if (!Array.isArray(questions) || questions.length !== interview.questionCount) {
       // A provider bug must never start an interview it cannot fill.
       throw new HttpError(503, "GENERATION_FAILED", "Could not build the question set. Try again.");

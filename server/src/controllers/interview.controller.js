@@ -10,6 +10,7 @@ import {
   startInterview,
   submitAnswer,
 } from "../services/interviewSession.service.js";
+import { buildResultsView, evaluateInterview } from "../services/evaluation.service.js";
 
 // POST /api/interviews — owner derived from the session, never the body.
 async function create(req, res, next) {
@@ -80,4 +81,22 @@ async function complete(req, res, next) {
   }
 }
 
-export { create, list, detail, stats, start, session, answer, complete };
+// AI feedback: evaluate unevaluated answers (state-machine neutral), then
+// read results. GET /results is a pure read.
+async function evaluate(req, res, next) {
+  try {
+    res.json(await evaluateInterview(req.user.id, req.params.id));
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function results(req, res, next) {
+  try {
+    res.json(await buildResultsView(req.user.id, req.params.id));
+  } catch (err) {
+    next(err);
+  }
+}
+
+export { create, list, detail, stats, start, session, answer, complete, evaluate, results };

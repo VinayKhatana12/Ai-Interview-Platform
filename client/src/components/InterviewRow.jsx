@@ -12,7 +12,9 @@ export function InterviewRow({ interview }) {
       ? { label: 'Start', to: `/interviews/${interview.id}` }
       : interview.status === 'IN_PROGRESS'
         ? { label: 'Resume', to: `/interviews/${interview.id}` }
-        : null
+        : interview.status === 'COMPLETED'
+          ? { label: 'Results', to: `/interviews/${interview.id}` }
+          : null
 
   return (
     <div className="flex items-center justify-between gap-4 py-3">

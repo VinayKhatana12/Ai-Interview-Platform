@@ -8,7 +8,7 @@ import {
 } from '../api/interviews.js'
 import { PageSkeleton } from '../components/Skeletons.jsx'
 import { BlockError } from '../components/States.jsx'
-import { StatusPill } from '../components/StatusPill.jsx'
+import ResultsView from '../components/ResultsView.jsx'
 
 // The interview workspace: one question at a time, a timer derived from the
 // server's clock, an answer editor whose draft survives refreshes, and
@@ -231,51 +231,9 @@ export default function InterviewSession() {
 
   const { interview, progress } = session
 
-  // ---- Completed summary ----
+  // ---- Completed: results with AI feedback ----
   if (session.phase === 'completed') {
-    const minutes =
-      interview.startedAt && interview.completedAt
-        ? Math.max(1, Math.round((Date.parse(interview.completedAt) - Date.parse(interview.startedAt)) / 60000))
-        : null
-    return (
-      <div className="mx-auto max-w-[720px] space-y-6">
-        <div>
-          <h1 className="text-2xl font-medium text-ink">{interview.roleTitle}</h1>
-          <p className="mt-1.5 flex items-center gap-2 text-sm text-muted">
-            <StatusPill status="COMPLETED" />
-            {minutes != null && <span className="tnum">Took {minutes} min</span>}
-          </p>
-        </div>
-        <section className="rounded-[8px] border border-line bg-surface p-5 sm:p-6">
-          <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-[8px] border border-line bg-rule sm:grid-cols-4">
-            {[
-              { label: 'Answered', value: `${progress.answered}` },
-              { label: 'Questions', value: `${progress.total}` },
-              { label: 'Difficulty', value: difficultyLabel(interview.difficulty) },
-              { label: 'Score', value: '—' },
-            ].map((cell) => (
-              <div key={cell.label} className="flex flex-col gap-1 bg-surface p-4">
-                <dt className="text-xs text-muted">{cell.label}</dt>
-                <dd className={`text-xl font-medium tnum ${cell.label === 'Score' ? 'text-muted/50' : 'text-ink'}`}>
-                  {cell.value}
-                </dd>
-              </div>
-            ))}
-          </dl>
-          <p className="mt-5 text-sm text-muted">
-            Scores and per-question feedback arrive with the AI evaluation milestone.
-          </p>
-          <div className="mt-5 flex gap-3">
-            <Link to="/" className="h-9 rounded-[6px] bg-primary px-4 text-sm font-medium leading-9 text-white hover:opacity-90">
-              Back to dashboard
-            </Link>
-            <Link to="/history" className="h-9 rounded-[6px] border border-control bg-surface px-4 text-sm leading-9 text-ink hover:bg-raised">
-              History
-            </Link>
-          </div>
-        </section>
-      </div>
-    )
+    return <ResultsView interviewId={id} />
   }
 
   // ---- Ready (PENDING): recap + start ----

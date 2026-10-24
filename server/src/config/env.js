@@ -11,6 +11,13 @@ const schema = z.object({
     ),
   PORT: z.coerce.number().int().positive().default(3000),
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+  // AI provider (Google Gemini). Without AI_API_KEY the platform runs on the
+  // labeled development fixtures; with it, every generation/evaluation call
+  // goes to the real provider. The key never leaves this process.
+  AI_PROVIDER: z.enum(["gemini", "none"]).default("gemini"),
+  AI_API_KEY: z.string().min(1).optional(),
+  AI_MODEL: z.string().min(1).default("gemini-2.5-flash"),
+  AI_TIMEOUT_MS: z.coerce.number().int().min(1000).max(120000).default(30000),
 });
 
 const parsed = schema.safeParse(process.env);
