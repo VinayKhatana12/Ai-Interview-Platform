@@ -4,6 +4,12 @@ import {
   getInterviewStats,
   listInterviews,
 } from "../services/interview.service.js";
+import {
+  buildSessionView,
+  completeInterview,
+  startInterview,
+  submitAnswer,
+} from "../services/interviewSession.service.js";
 
 // POST /api/interviews — owner derived from the session, never the body.
 async function create(req, res, next) {
@@ -41,4 +47,37 @@ async function stats(req, res, next) {
   }
 }
 
-export { create, list, detail, stats };
+// Session flow: start, current state, submit answer, complete.
+async function start(req, res, next) {
+  try {
+    res.status(201).json(await startInterview(req.user.id, req.params.id));
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function session(req, res, next) {
+  try {
+    res.json(await buildSessionView(req.user.id, req.params.id));
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function answer(req, res, next) {
+  try {
+    res.json(await submitAnswer(req.user.id, req.params.id, req.body));
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function complete(req, res, next) {
+  try {
+    res.json(await completeInterview(req.user.id, req.params.id));
+  } catch (err) {
+    next(err);
+  }
+}
+
+export { create, list, detail, stats, start, session, answer, complete };

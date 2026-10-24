@@ -1,10 +1,19 @@
 // One interview row, shared by Dashboard (capped) and History (full list).
 // Desktop: identity left, figures right-aligned tabular. Phone: identity and
-// status; figures fold into the subline (app-screens §12).
+// status; figures fold into the subline (app-screens §12). Actionable rows
+// (draft or in progress) carry one ink text action in a fixed trailing slot.
+import { Link } from 'react-router-dom'
 import { StatusPill } from './StatusPill.jsx'
 import { formatDateShort, scoreText } from '../utils/format.js'
 
 export function InterviewRow({ interview }) {
+  const action =
+    interview.status === 'PENDING'
+      ? { label: 'Start', to: `/interviews/${interview.id}` }
+      : interview.status === 'IN_PROGRESS'
+        ? { label: 'Resume', to: `/interviews/${interview.id}` }
+        : null
+
   return (
     <div className="flex items-center justify-between gap-4 py-3">
       <div className="min-w-0 flex-1">
@@ -30,10 +39,25 @@ export function InterviewRow({ interview }) {
         </span>
         <span className="w-24 text-right text-xs text-muted">{formatDateShort(interview.createdAt)}</span>
         <StatusPill status={interview.status} />
+        {action && (
+          <Link
+            to={action.to}
+            className="w-14 text-right text-sm font-medium text-ink underline underline-offset-2 hover:opacity-80"
+          >
+            {action.label}
+          </Link>
+        )}
       </div>
       <div className="flex flex-col items-end gap-1.5 md:hidden">
         <StatusPill status={interview.status} />
-        <span className="text-xs text-muted">{formatDateShort(interview.createdAt)}</span>
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-muted">{formatDateShort(interview.createdAt)}</span>
+          {action && (
+            <Link to={action.to} className="text-sm font-medium text-ink underline underline-offset-2">
+              {action.label}
+            </Link>
+          )}
+        </div>
       </div>
     </div>
   )
