@@ -309,9 +309,27 @@ describe("POST /api/interviews/:id/evaluate + results", () => {
     expect(before.status).toBe(200);
     expect(before.body.evaluatedCount).toBe(0);
     expect(before.body.items[0].evaluation).toBeNull();
+    expect(before.body.practiceSuggestions).toBeNull();
 
     const asB = await request(app).get(`/api/interviews/${id}/results`).set("Cookie", cookieB);
     expect(asB.status).toBe(404);
+  });
+
+  it("suggests practice topics from weak scores, and none when strong", async () => {
+    mockQuestionsThen({ ...aiEvaluation, score: 45, correctness: "INCORRECT" });
+    const id = await createAndComplete();
+    const weak = await request(app).post(`/api/interviews/${id}/evaluate`).set("Cookie", cookieA);
+    expect(weak.body.avgScore).toBe(45);
+    expect(weak.body.practiceSuggestions.length).toBeGreaterThan(0);
+    expect(weak.body.practiceSuggestions[0].topic).toBe("React");
+    expect(weak.body.practiceSuggestions[0].reason).toContain("45.0");
+
+    // A fresh interview with strong scores suggests nothing.
+    mockQuestionsThen();
+    vi.mocked(generateJson).mockImplementation(async () => aiEvaluation); // score 74
+    const id2 = await createAndComplete();
+    const strong = await request(app).post(`/api/interviews/${id2}/evaluate`).set("Cookie", cookieA);
+    expect(strong.body.practiceSuggestions).toEqual([]);
   });
 
   it("uses the labeled fixture without a key and says so", async () => {

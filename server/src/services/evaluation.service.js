@@ -64,6 +64,34 @@ async function buildResultsView(userId, interviewId) {
   const avgScore =
     scores.length === 0 ? null : Math.round((scores.reduce((a, b) => a + b, 0) / scores.length) * 10) / 10;
 
+  // Suggested practice topics, derived from the evaluations themselves (no
+  // extra AI call, nothing invented): topics averaging under 70, weakest
+  // first. null while feedback is incomplete; [] means nothing was weak.
+  let practiceSuggestions = null;
+  const answeredItems = items.filter((i) => i.answer);
+  const allEvaluated = answeredItems.length > 0 && answeredItems.every((i) => i.evaluation);
+  if (allEvaluated) {
+    const byTopic = new Map();
+    for (const item of answeredItems) {
+      const entry = byTopic.get(item.question.topic) ?? { scores: [] };
+      entry.scores.push(item.evaluation.score);
+      byTopic.set(item.question.topic, entry);
+    }
+    practiceSuggestions = [...byTopic.entries()]
+      .map(([topic, { scores: ts }]) => ({
+        topic,
+        avgScore: Math.round((ts.reduce((a, b) => a + b, 0) / ts.length) * 10) / 10,
+        questions: ts.length,
+      }))
+      .filter((t) => t.avgScore < 70)
+      .sort((a, b) => a.avgScore - b.avgScore)
+      .slice(0, 3)
+      .map((t) => ({
+        ...t,
+        reason: `Averaged ${t.avgScore.toFixed(1)} across ${t.questions} ${t.questions === 1 ? "question" : "questions"}`,
+      }));
+  }
+
   return {
     interview: {
       id: interview.id,
@@ -78,6 +106,7 @@ async function buildResultsView(userId, interviewId) {
     evaluatedCount: scores.length,
     totalAnswered: items.filter((i) => i.answer).length,
     avgScore,
+    practiceSuggestions,
     feedbackSource: isAiConfigured() ? "ai" : "fixture",
     disclaimer:
       "AI-generated practice feedback. It is a signal for your preparation, not a guaranteed hiring outcome.",

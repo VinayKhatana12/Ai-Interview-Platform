@@ -170,6 +170,25 @@ export default function ResultsView({ interviewId }) {
         ))}
       </dl>
 
+      {results.practiceSuggestions === null ? null : results.practiceSuggestions.length > 0 ? (
+        <section className="rounded-[8px] border border-line bg-surface">
+          <div className="px-5 py-4">
+            <h2 className="text-base font-medium text-ink">Practice next</h2>
+            <p className="mt-1 text-xs text-muted">Derived from this interview's scores, weakest first.</p>
+          </div>
+          <ul className="divide-y divide-rule border-t border-rule">
+            {results.practiceSuggestions.map((s) => (
+              <li key={s.topic} className="flex items-baseline justify-between gap-4 px-5 py-3">
+                <span className="text-sm text-ink">{s.topic}</span>
+                <span className="text-xs text-muted tnum">{s.reason}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : evaluatedAll ? (
+        <p className="text-sm text-muted">No weak topics detected in this interview.</p>
+      ) : null}
+
       {error && (
         <p role="alert" className="text-sm text-negative">
           {error}
