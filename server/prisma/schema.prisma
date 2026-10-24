@@ -48,13 +48,15 @@ enum InterviewStatus {
 }
 
 model User {
-  id           String   @id @default(uuid()) @db.Uuid
-  name         String
-  email        String   @unique
-  passwordHash String   @map("password_hash")
-  role         Role     @default(CANDIDATE)
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  id               String   @id @default(uuid()) @db.Uuid
+  name             String
+  email            String   @unique
+  passwordHash     String   @map("password_hash")
+  role             Role     @default(CANDIDATE)
+  // Target seniority set on the profile; mirrors the interview form's options.
+  experienceLevel  String?  @map("experience_level")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
 
   interviews Interview[]
 
@@ -70,6 +72,8 @@ model Interview {
   mode            InterviewMode   @default(TEXT)
   status          InterviewStatus @default(PENDING)
   durationMinutes Int             @map("duration_minutes")
+  topics          String[]        @default([])
+  questionCount   Int             @map("question_count")
   createdAt       DateTime        @default(now()) @map("created_at")
   startedAt       DateTime?       @map("started_at")
   completedAt     DateTime?       @map("completed_at")

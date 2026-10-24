@@ -5,6 +5,7 @@ export const SAFE_USER_SELECT = {
   name: true,
   email: true,
   role: true,
+  experienceLevel: true,
   createdAt: true,
   updatedAt: true,
 };

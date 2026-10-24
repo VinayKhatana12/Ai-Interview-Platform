@@ -1,6 +1,7 @@
 import express from "express";
 import cookieParser from "cookie-parser";
 import authRoutes from "./routes/auth.routes.js";
+import interviewRoutes from "./routes/interviews.routes.js";
 import { errorHandler, notFound } from "./middleware/errorHandler.js";
 import { prisma } from "./db/prisma.js";
 
@@ -23,6 +24,7 @@ app.get("/api/health", async (req, res) => {
 });
 
 app.use("/api/auth", authRoutes);
+app.use("/api/interviews", interviewRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

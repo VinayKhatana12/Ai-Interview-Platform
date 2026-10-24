@@ -2,7 +2,8 @@ import { Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext.jsx'
 
 // While the session is being restored from /me, hold the layout with grey
-// bars at the size of what will appear (app-screens §11) — no redirect flicker.
+// bars at the size of what will appear (app-screens §11), with no redirect
+// flicker.
 function SessionLoading() {
   return (
     <div className="flex min-h-screen items-center justify-center" role="status" aria-label="Checking your session">

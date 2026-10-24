@@ -57,3 +57,12 @@ export async function verifyCredentials({ email, password }) {
 export async function findSafeUserById(id) {
   return prisma.user.findUnique({ where: { id }, select: SAFE_USER_SELECT });
 }
+
+// Profile fields the user may edit themselves. Email and role are not
+// editable here. experienceLevel null clears the preference.
+export async function updateUserProfile(id, { name, experienceLevel }) {
+  const data = {};
+  if (name !== undefined) data.name = name;
+  if (experienceLevel !== undefined) data.experienceLevel = experienceLevel;
+  return prisma.user.update({ where: { id }, data, select: SAFE_USER_SELECT });
+}

@@ -8,6 +8,8 @@ testUrl.pathname = "/ai_interview_test";
 export default defineConfig({
   test: {
     include: ["tests/**/*.test.mjs"],
+    // Test files share one database; wipe-based isolation needs them serial.
+    fileParallelism: false,
     env: {
       DATABASE_URL: testUrl.href,
       // Deterministic across machines; .env's secret is used when present.

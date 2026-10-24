@@ -1,7 +1,7 @@
 import { clearSessionCookie, setSessionCookie } from "../lib/cookies.js";
 import { signSession } from "../lib/jwt.js";
 import { SAFE_USER_SELECT } from "../services/userSelect.js";
-import { registerUser, verifyCredentials } from "../services/auth.service.js";
+import { registerUser, updateUserProfile, verifyCredentials } from "../services/auth.service.js";
 import { HttpError } from "../utils/HttpError.js";
 import { prisma } from "../db/prisma.js";
 
@@ -46,4 +46,14 @@ function me(req, res) {
   res.json({ user: req.user });
 }
 
-export { register, login, logout, me };
+// PATCH /api/auth/me — editable profile fields only.
+async function updateMe(req, res, next) {
+  try {
+    const user = await updateUserProfile(req.user.id, req.body);
+    res.json({ user });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export { register, login, logout, me, updateMe };
