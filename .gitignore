@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+
+# Build output & test coverage
+dist/
+build/
+coverage/
+
+# Environment & secrets — never commit real values
+.env
+.env.*
+!server/.env.example
+
+# Prisma generated client (regenerated with `prisma generate`)
+server/generated/
+
+# Taste-skill working files
+.taste-skill/
+
+# Logs & OS noise
+*.log
+.DS_Store
+Thumbs.db

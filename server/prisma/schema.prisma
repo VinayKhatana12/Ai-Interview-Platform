@@ -1,0 +1,138 @@
+generator client {
+  provider               = "prisma-client"
+  output                 = "../generated/prisma"
+  runtime                = "nodejs"
+  moduleFormat           = "esm"
+  generatedFileExtension = "ts"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// Account roles for the platform. Candidates take interviews;
+// interviewers/admins manage them (admin tooling arrives in a later milestone).
+enum Role {
+  CANDIDATE
+  INTERVIEWER
+  ADMIN
+
+  @@map("user_role")
+}
+
+// Question/interview difficulty. Shared by Interview and Question so the
+// AI generator's requested difficulty and each question's own level stay comparable.
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+
+  @@map("difficulty")
+}
+
+// Interview delivery mode. Only TEXT exists in v1; adding a mode later is a
+// one-line enum migration.
+enum InterviewMode {
+  TEXT
+
+  @@map("interview_mode")
+}
+
+// Lifecycle of an interview. PENDING -> IN_PROGRESS -> COMPLETED.
+enum InterviewStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+
+  @@map("interview_status")
+}
+
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  name         String
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  role         Role     @default(CANDIDATE)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  interviews Interview[]
+
+  @@map("users")
+}
+
+model Interview {
+  id              String          @id @default(uuid()) @db.Uuid
+  userId          String          @map("user_id") @db.Uuid
+  roleTitle       String          @map("role_title")
+  experienceLevel String          @map("experience_level")
+  difficulty      Difficulty
+  mode            InterviewMode   @default(TEXT)
+  status          InterviewStatus @default(PENDING)
+  durationMinutes Int             @map("duration_minutes")
+  createdAt       DateTime        @default(now()) @map("created_at")
+  startedAt       DateTime?       @map("started_at")
+  completedAt     DateTime?       @map("completed_at")
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  questions Question[]
+  answers   Answer[]
+
+  // Serves "list this user's interviews, newest first" and the FK lookups.
+  @@index([userId, createdAt])
+  @@map("interviews")
+}
+
+model Question {
+  id            String     @id @default(uuid()) @db.Uuid
+  interviewId   String     @map("interview_id") @db.Uuid
+  text          String
+  topic         String
+  difficulty    Difficulty
+  questionOrder Int        @map("question_order")
+  questionType  String     @map("question_type")
+  createdAt     DateTime   @default(now()) @map("created_at")
+
+  interview Interview @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  answer    Answer?
+
+  // One question per position in an interview; also backs the FK index.
+  @@unique([interviewId, questionOrder])
+  @@map("questions")
+}
+
+model Answer {
+  id               String   @id @default(uuid()) @db.Uuid
+  questionId       String   @unique @map("question_id") @db.Uuid
+  interviewId      String   @map("interview_id") @db.Uuid
+  responseText     String   @map("response_text")
+  submittedAt      DateTime @default(now()) @map("submitted_at")
+  timeTakenSeconds Int      @map("time_taken_seconds")
+
+  question   Question    @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  interview  Interview   @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  evaluation Evaluation?
+
+  // One answer per question; backs the one-to-one relation and the FK lookups.
+  // Separate index for interview-scoped answer lists (e.g. results pages).
+  @@index([interviewId])
+  @@map("answers")
+}
+
+model Evaluation {
+  id           String   @id @default(uuid()) @db.Uuid
+  answerId     String   @unique @map("answer_id") @db.Uuid
+  // 0–100, scale enforced in the service layer.
+  score        Float
+  feedback     String
+  // Flexible lists from the LLM (e.g. ["Explained X clearly", ...]);
+  // core scoring fields above stay typed.
+  strengths    Json
+  improvements Json
+  modelAnswer  String   @map("model_answer")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  answer Answer @relation(fields: [answerId], references: [id], onDelete: Cascade)
+
+  @@map("evaluations")
+}
