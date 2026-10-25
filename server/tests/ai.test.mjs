@@ -350,6 +350,42 @@ describe("POST /api/interviews/:id/evaluate + results", () => {
     expect(res.body.items[0].evaluation.strengths).toEqual([]);
   });
 
+  it("dashboard stats derive best/average/answered/recent from real records", async () => {
+    // Interview 1: three answers scored 60 each -> overall 60.
+    mockQuestionsThen({ ...aiEvaluation, score: 60 });
+    const id1 = await createAndComplete();
+    await request(app).post(`/api/interviews/${id1}/evaluate`).set("Cookie", cookieA);
+
+    // Interview 2: three answers scored 90 each -> overall 90 (the best).
+    mockQuestionsThen({ ...aiEvaluation, score: 90 });
+    const id2 = await createAndComplete();
+    await request(app).post(`/api/interviews/${id2}/evaluate`).set("Cookie", cookieA);
+
+    // Interview 3: completed but never evaluated -> excluded from scores.
+    mockQuestionsThen({ ...aiEvaluation, score: 100 });
+    const id3 = await createAndComplete();
+
+    // A draft and an in-progress interview for state counts.
+    await request(app).post("/api/interviews").set("Cookie", cookieA).send(CONFIG);
+
+    const stats = await request(app).get("/api/interviews/stats").set("Cookie", cookieA);
+    const s = stats.body;
+    expect(s.completed).toBe(3);
+    expect(s.drafts).toBe(1);
+    expect(s.answeredTotal).toBe(9); // 3 interviews x 3 answers, counted once each
+    expect(s.avgScore).toBe(75); // mean of interview overalls (60, 90)
+    expect(s.bestScore).toBe(90);
+    expect(s.recentScores).toHaveLength(2); // unscored interview excluded, not zero
+    expect(s.recentScores.map((r) => r.score)).toEqual([60, 90]); // oldest first
+    expect(s.recentScores[1].id).toBe(id2);
+
+    // Ownership: the other candidate sees none of it.
+    const asB = await request(app).get("/api/interviews/stats").set("Cookie", cookieB);
+    expect(asB.body.total).toBe(0);
+    expect(asB.body.bestScore).toBeNull();
+    expect(asB.body.recentScores).toEqual([]);
+  });
+
   it("uses the labeled fixture without a key and says so", async () => {
     process.env.AI_API_KEY = "";
     const id = await createAndComplete();

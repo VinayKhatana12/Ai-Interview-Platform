@@ -206,7 +206,10 @@ describe("GET /api/interviews/stats", () => {
       inProgress: 0,
       completed: 0,
       avgScore: null,
+      bestScore: null,
+      answeredTotal: 0,
       practiceMinutes: 0,
+      recentScores: [],
     });
   });
 
@@ -219,6 +222,9 @@ describe("GET /api/interviews/stats", () => {
     expect(res.body.total).toBe(2);
     expect(res.body.drafts).toBe(2);
     expect(res.body.avgScore).toBeNull();
+    expect(res.body.bestScore).toBeNull();
+    expect(res.body.answeredTotal).toBe(0);
+    expect(res.body.recentScores).toEqual([]);
   });
 });
 

@@ -6,6 +6,7 @@ import { useAsync } from '../hooks/useAsync.js'
 import { KpiSkeleton, RowsSkeleton } from '../components/Skeletons.jsx'
 import { EmptyState, BlockError } from '../components/States.jsx'
 import { InterviewRow } from '../components/InterviewRow.jsx'
+import { ScoreTrendChart } from '../components/ScoreTrendChart.jsx'
 import { greeting } from '../utils/format.js'
 
 // The dashboard answers one question first: how is my practice going, and
@@ -13,14 +14,18 @@ import { greeting } from '../utils/format.js'
 // honest and the empty state carries the screen's action.
 function KpiStrip({ stats }) {
   const cells = [
-    { label: 'Interviews', value: stats?.total ?? 0 },
-    { label: 'Completed', value: stats?.completed ?? 0 },
+    { label: 'Completed interviews', value: stats?.completed ?? 0 },
     {
       label: 'Average score',
       value: stats?.avgScore != null ? stats.avgScore.toFixed(1) : '—',
       muted: stats?.avgScore == null,
     },
-    { label: 'Minutes practised', value: stats?.practiceMinutes ?? 0 },
+    {
+      label: 'Best score',
+      value: stats?.bestScore != null ? stats.bestScore.toFixed(1) : '—',
+      muted: stats?.bestScore == null,
+    },
+    { label: 'Questions answered', value: stats?.answeredTotal ?? 0 },
   ]
   return (
     <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-[8px] border border-line bg-rule md:grid-cols-4">
@@ -47,6 +52,8 @@ export default function Dashboard() {
     day: 'numeric',
     month: 'short',
   })
+  const trendPoints = stats.data?.recentScores ?? []
+  const showTrend = trendPoints.length >= 2
 
   return (
     <div className="space-y-6">
@@ -57,13 +64,21 @@ export default function Dashboard() {
             {today} · {greeting()}, {firstName}
           </p>
         </div>
-        <Link
-          to="/interviews/new"
-          className="inline-flex h-9 items-center gap-2 rounded-[6px] bg-primary px-4 text-sm font-medium text-white transition-opacity hover:opacity-90"
-        >
-          <Plus size={16} strokeWidth={2} aria-hidden="true" />
-          New interview
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            to="/history"
+            className="inline-flex h-9 items-center rounded-[6px] border border-control bg-surface px-4 text-sm text-ink hover:bg-raised"
+          >
+            View history
+          </Link>
+          <Link
+            to="/interviews/new"
+            className="inline-flex h-9 items-center gap-2 rounded-[6px] bg-primary px-4 text-sm font-medium text-white transition-opacity hover:opacity-90"
+          >
+            <Plus size={16} strokeWidth={2} aria-hidden="true" />
+            New interview
+          </Link>
+        </div>
       </div>
 
       {stats.loading ? (
@@ -72,6 +87,20 @@ export default function Dashboard() {
         <BlockError message={stats.error} onRetry={stats.refetch} />
       ) : (
         <KpiStrip stats={stats.data} />
+      )}
+
+      {!stats.loading && !stats.error && showTrend && (
+        <section className="rounded-[8px] border border-line bg-surface">
+          <div className="px-5 py-4">
+            <h2 className="text-base font-medium text-ink">Score trend</h2>
+            <p className="mt-1 text-xs text-muted">
+              Overall score of your last {trendPoints.length} scored interviews, oldest to newest.
+            </p>
+          </div>
+          <div className="px-4 pb-4">
+            <ScoreTrendChart points={trendPoints} />
+          </div>
+        </section>
       )}
 
       <section className="rounded-[8px] border border-line bg-surface">
