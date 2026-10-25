@@ -15,6 +15,10 @@ export default defineConfig({
       // Deterministic across machines; .env's secret is used when present.
       JWT_SECRET: "test-secret-0123456789abcdef0123456789abcdef",
       NODE_ENV: "test",
+      // Hermetic: a developer's real AI_API_KEY from .env must never leak
+      // into tests (dotenv loads .env at config time). ai.test.mjs sets its
+      // own key per test; every other file runs the deterministic fixture.
+      AI_API_KEY: "",
     },
   },
 });

@@ -8,7 +8,10 @@ import {
 } from '../api/interviews.js'
 import { PageSkeleton } from '../components/Skeletons.jsx'
 import { BlockError } from '../components/States.jsx'
+import { SegmentedControl } from '../components/SegmentedControl.jsx'
 import ResultsView from '../components/ResultsView.jsx'
+import VoiceWorkspace from '../components/voice/VoiceWorkspace.jsx'
+import { useRecorder } from '../hooks/useRecorder.js'
 
 // The interview workspace: one question at a time, a timer derived from the
 // server's clock, an answer editor whose draft survives refreshes, and
@@ -31,23 +34,25 @@ function draftKey(interviewId) {
 
 // Small floating dialog (a dialog is one of the things allowed to cast a
 // shadow, per app-screens §9.4).
-function ConfirmLeaveDialog({ blocker, onDiscard }) {
+function ConfirmLeaveDialog({ blocker, onDiscard, reason }) {
+  const recording = reason === 'recording'
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/30 px-4" role="dialog" aria-modal="true" aria-labelledby="leave-title">
       <div className="w-full max-w-[400px] rounded-[8px] border border-line bg-surface p-6 shadow-lg">
         <h2 id="leave-title" className="text-base font-medium text-ink">
-          Leave with an unsaved answer?
+          {recording ? 'Leave while recording?' : 'Leave with an unsaved answer?'}
         </h2>
         <p className="mt-2 text-sm text-muted">
-          Your draft stays on this device and will be restored if you come back, but it is not
-          submitted until you press Submit answer.
+          {recording
+            ? 'Your recording is still running. Leaving stops it and keeps only what you submitted.'
+            : 'Your draft stays on this device and will be restored if you come back, but it is not submitted until you press Submit answer.'}
         </p>
         <div className="mt-5 flex justify-end gap-2">
           <button
             onClick={() => blocker.reset()}
             className="h-9 rounded-[6px] border border-control bg-surface px-4 text-sm text-ink hover:bg-raised"
           >
-            Keep answering
+            {recording ? 'Keep recording' : 'Keep answering'}
           </button>
           <button
             onClick={() => {
@@ -79,9 +84,23 @@ export default function InterviewSession() {
   const [savedNote, setSavedNote] = useState('')
   const [starting, setStarting] = useState(false)
   const [completing, setCompleting] = useState(false)
+  // Answer mode is an interaction preference of the session screen; the
+  // interview's stored mode is unchanged. Voice is a labeled prototype.
+  const [answerMode, setAnswerMode] = useState(
+    () => localStorage.getItem(`il:voice-pref:${id}`) === 'voice' ? 'voice' : 'typed',
+  )
+  const recorder = useRecorder()
+
+  function switchAnswerMode(next) {
+    if (['recording', 'requesting', 'stopping'].includes(recorder.state)) return
+    setAnswerMode(next)
+    localStorage.setItem(`il:voice-pref:${id}`, next)
+  }
 
   const sessionRef = useRef(null)
   sessionRef.current = session
+  const recorderStateRef = useRef('idle')
+  recorderStateRef.current = recorder.state
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -155,11 +174,25 @@ export default function InterviewSession() {
     return () => window.removeEventListener('beforeunload', onBeforeUnload)
   }, [hasDraft])
 
+  // Reset any leftover recording when the question advances (never mid-recording).
+  useEffect(() => {
+    if (!question) return
+    recorder.reset()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, question?.id])
+
   const shouldBlock = useCallback(
-    () => Boolean(sessionRef.current?.phase === 'in_progress' && answer.trim()),
+    () => {
+      if (sessionRef.current?.phase !== 'in_progress') return false
+      if (['recording', 'requesting', 'stopping'].includes(recorderStateRef.current)) return true
+      return Boolean(answer.trim())
+    },
     [answer],
   )
   const blocker = useBlocker(shouldBlock)
+  const leaveReason = ['recording', 'requesting', 'stopping'].includes(recorderStateRef.current)
+    ? 'recording'
+    : 'draft'
 
   // Server clock offset so the countdown matches the server's deadline,
   // not the device's clock.
@@ -343,7 +376,11 @@ export default function InterviewSession() {
       {blocker.state === 'blocked' && (
         <ConfirmLeaveDialog
           blocker={blocker}
-          onDiscard={() => sessionStorage.removeItem(draftKey(id))}
+          reason={leaveReason}
+          onDiscard={() => {
+            sessionStorage.removeItem(draftKey(id))
+            if (recorder.state === 'recording') recorder.stop()
+          }}
         />
       )}
 
@@ -371,6 +408,24 @@ export default function InterviewSession() {
         <div className="h-full rounded-full bg-ink transition-[width]" style={{ width: `${progressPct}%` }} />
       </div>
 
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-xs text-muted">
+          {answerMode === 'voice' ? 'Voice practice is a prototype until transcription arrives.' : ''}
+        </p>
+        <SegmentedControl
+          ariaLabel="Answer mode"
+          value={answerMode}
+          onChange={switchAnswerMode}
+          options={[
+            { value: 'typed', label: 'Typed' },
+            { value: 'voice', label: 'Voice (prototype)' },
+          ]}
+        />
+      </div>
+
+      {answerMode === 'voice' ? (
+        <VoiceWorkspace question={question} recorder={recorder} onSwitchToTyped={() => switchAnswerMode('typed')} />
+      ) : (
       <section className="rounded-[8px] border border-line bg-surface">
         <div className="border-b border-rule px-5 py-2.5 sm:px-6">
           <p className="text-xs text-muted">
@@ -416,6 +471,7 @@ export default function InterviewSession() {
           </button>
         </div>
       </section>
+      )}
     </div>
   )
 }
