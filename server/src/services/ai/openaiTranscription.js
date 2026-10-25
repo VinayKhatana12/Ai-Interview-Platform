@@ -72,6 +72,13 @@ export async function transcribeAudio({ buffer, mimeType }) {
       throw new HttpError(503, "STT_UNREACHABLE", "Could not reach the transcription service. Try again.");
     }
     if (status === 429) {
+      if (err?.error?.type === "insufficient_quota") {
+        throw new HttpError(
+          402,
+          "STT_NO_CREDITS",
+          "The transcription service has no OpenAI credits left. Add billing credits on the server's OpenAI account.",
+        );
+      }
       throw new HttpError(429, "STT_RATE_LIMITED", "The transcription service is busy. Wait a moment and try again.");
     }
     if (status === 400 || status === 422) {

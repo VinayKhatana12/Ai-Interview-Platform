@@ -182,6 +182,13 @@ describe("POST /api/interviews/:id/transcribe", () => {
     expect(limited.status).toBe(429);
     expect(limited.body.error.code).toBe("STT_RATE_LIMITED");
 
+    const noCredits = new FakeAPIError(429);
+    noCredits.error = { type: "insufficient_quota" };
+    mockCreate.mockRejectedValueOnce(noCredits);
+    const credits = await postAudio();
+    expect(credits.status).toBe(402);
+    expect(credits.body.error.code).toBe("STT_NO_CREDITS");
+
     mockCreate.mockRejectedValueOnce(new FakeAPIError(400));
     const invalid = await postAudio();
     expect(invalid.status).toBe(422);
