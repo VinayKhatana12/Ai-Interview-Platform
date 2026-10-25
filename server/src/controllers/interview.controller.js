@@ -1,5 +1,6 @@
 import {
   createInterview,
+  getInterviewAnalytics,
   getInterview,
   getInterviewStats,
   listInterviews,
@@ -37,6 +38,14 @@ async function detail(req, res, next) {
   try {
     const interview = await getInterview(req.user.id, req.params.id);
     res.json({ interview });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function analytics(req, res, next) {
+  try {
+    res.json(await getInterviewAnalytics(req.user.id));
   } catch (err) {
     next(err);
   }
@@ -132,4 +141,4 @@ async function speech(req, res, next) {
   }
 }
 
-export { create, list, detail, stats, start, session, answer, complete, evaluate, results, transcribe, speech };
+export { create, list, detail, stats, analytics, start, session, answer, complete, evaluate, results, transcribe, speech };

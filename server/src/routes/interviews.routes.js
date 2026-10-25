@@ -13,6 +13,7 @@ import {
   results,
   session,
   speech,
+  analytics,
   start,
   stats,
   transcribe,
@@ -26,6 +27,7 @@ router.use(requireAuth);
 
 router.post("/", validate(createInterviewSchema), create);
 router.get("/stats", stats);
+router.get("/analytics", analytics);
 router.get("/", validate(listInterviewsQuerySchema, "query"), list);
 router.post("/:id/start", start);
 router.post("/:id/answers", validate(submitAnswerSchema), answer);

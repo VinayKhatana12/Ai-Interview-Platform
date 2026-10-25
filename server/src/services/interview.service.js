@@ -73,6 +73,114 @@ export async function getInterview(userId, id) {
   return withScore(interview);
 }
 
+// Personal analytics for the signed-in candidate. Same documented score
+// method as /stats (interview overall = mean of its evaluated answers,
+// 1dp). Skill-wise performance uses the axes the data actually has: the
+// question's persisted topic and the evaluator's persisted correctness
+// verdict — no invented criteria.
+export async function getInterviewAnalytics(userId) {
+  const [completedInterviews, evaluatedAnswers, answeredInCompleted] = await Promise.all([
+    prisma.interview.findMany({
+      where: { userId, status: "COMPLETED" },
+      select: { id: true, roleTitle: true, completedAt: true, questionCount: true },
+      orderBy: { completedAt: "asc" },
+    }),
+    // One pass carries everything: per-interview overalls, per-topic stats,
+    // correctness verdict counts.
+    prisma.answer.findMany({
+      where: { interview: { userId, status: "COMPLETED" }, evaluation: { isNot: null } },
+      select: {
+        interviewId: true,
+        question: { select: { topic: true } },
+        evaluation: { select: { score: true, correctness: true } },
+      },
+    }),
+    prisma.answer.count({ where: { interview: { userId, status: "COMPLETED" } } }),
+  ]);
+
+  const round1 = (n) => Math.round(n * 10) / 10;
+
+  const answeredByInterview = new Map();
+  for (const iv of completedInterviews) answeredByInterview.set(iv.id, { evaluated: 0, answered: iv.questionCount });
+  const perInterview = new Map(); // id -> { sum, n }
+  const byTopic = new Map(); // topic -> { n, sum, correct, partial, incorrect }
+  const verdicts = { CORRECT: 0, PARTIALLY_CORRECT: 0, INCORRECT: 0 };
+
+  for (const a of evaluatedAnswers) {
+    const bucket = answeredByInterview.get(a.interviewId);
+    if (bucket) bucket.evaluated += 1;
+    const entry = perInterview.get(a.interviewId) ?? { sum: 0, n: 0 };
+    entry.sum += a.evaluation.score;
+    entry.n += 1;
+    perInterview.set(a.interviewId, entry);
+
+    const topic = a.question.topic;
+    const t = byTopic.get(topic) ?? { n: 0, sum: 0, correct: 0, partial: 0, incorrect: 0 };
+    t.n += 1;
+    t.sum += a.evaluation.score;
+    if (a.evaluation.correctness === "CORRECT") t.correct += 1;
+    else if (a.evaluation.correctness === "PARTIALLY_CORRECT") t.partial += 1;
+    else t.incorrect += 1;
+    byTopic.set(topic, t);
+
+    verdicts[a.evaluation.correctness] += 1;
+  }
+
+  const interviewScore = (id) => {
+    const e = perInterview.get(id);
+    return e ? round1(e.sum / e.n) : null;
+  };
+  const interviewScores = [...perInterview.values()].map((e) => round1(e.sum / e.n));
+
+  // Trend: every scored completed interview in chronological order, with a
+  // partial flag when some of its answers are not evaluated. Unscored
+  // interviews are excluded, never plotted as zero.
+  const trend = completedInterviews
+    .filter((iv) => perInterview.has(iv.id))
+    .map((iv) => {
+      const bucket = answeredByInterview.get(iv.id);
+      return {
+        id: iv.id,
+        roleTitle: iv.roleTitle,
+        completedAt: iv.completedAt,
+        score: interviewScore(iv.id),
+        partial: bucket.evaluated < bucket.answered,
+      };
+    });
+
+  const topics = [...byTopic.entries()]
+    .map(([topic, t]) => ({
+      topic,
+      answered: t.n,
+      avgScore: round1(t.sum / t.n),
+      correct: t.correct,
+      partial: t.partial,
+      incorrect: t.incorrect,
+    }))
+    .sort((a, b) => b.avgScore - a.avgScore);
+
+  // Strongest/weakest only when the comparison is meaningful: at least two
+  // topics with data.
+  const strongest = topics.length >= 2 ? topics[0].topic : null;
+  const weakest = topics.length >= 2 ? topics[topics.length - 1].topic : null;
+
+  return {
+    completedCount: completedInterviews.length,
+    scoredCount: perInterview.size,
+    answeredTotal: answeredInCompleted,
+    avgScore:
+      interviewScores.length === 0
+        ? null
+        : round1(interviewScores.reduce((s, v) => s + v, 0) / interviewScores.length),
+    bestScore: interviewScores.length === 0 ? null : Math.max(...interviewScores),
+    verdicts,
+    trend,
+    topics,
+    strongest,
+    weakest,
+  };
+}
+
 // Dashboard statistics, all derived from persisted records.
 //
 // Documented score method (used consistently by /stats, /results and the

@@ -7,6 +7,7 @@ export const listInterviews = (page = 1, pageSize = 10) =>
   api(`/api/interviews?page=${page}&pageSize=${pageSize}`)
 
 export const getInterviewStats = () => api('/api/interviews/stats')
+export const getInterviewAnalytics = () => api('/api/interviews/analytics')
 
 // Session flow
 export const getInterviewSession = (id) => api(`/api/interviews/${id}/session`)
