@@ -12,11 +12,13 @@ import {
   list,
   results,
   session,
+  speech,
   start,
   stats,
   transcribe,
 } from "../controllers/interview.controller.js";
 import { audioUpload } from "../middleware/upload.js";
+import { speechLimiter } from "../middleware/rateLimit.js";
 
 const router = Router();
 
@@ -30,6 +32,7 @@ router.post("/:id/answers", validate(submitAnswerSchema), answer);
 router.post("/:id/complete", complete);
 router.post("/:id/evaluate", evaluate);
 router.post("/:id/transcribe", audioUpload.single("audio"), transcribe);
+router.post("/:id/speech", speechLimiter, speech);
 router.get("/:id", detail);
 router.get("/:id/session", session);
 router.get("/:id/results", results);

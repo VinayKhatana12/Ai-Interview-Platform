@@ -24,6 +24,8 @@ npm run dev                 # http://localhost:3000
 | `AI_TIMEOUT_MS` | no | Per-request timeout, default 30000. |
 | `OPENAI_API_KEY` | no | Alternative transcription provider (`gpt-transcribe`). Used only when `AI_API_KEY` is absent — Gemini is the primary (free) transcriber. https://platform.openai.com/api-keys |
 | `STT_MODEL` | no | Gemini transcription model override; default `gemini-3.5-transcribe`. |
+| `TTS_GEMINI_MODEL` / `TTS_GEMINI_VOICE` | no | Question speech (primary, free): default `gemini-3.8-flash-tts` / voice `Kore`. |
+| `TTS_MODEL` / `TTS_VOICE` | no | Question speech (OpenAI alternative, used only without `AI_API_KEY`): default `gpt-4o-mini-tts` / voice `marin`. |
 
 Get a Gemini key at https://aistudio.google.com/apikey (free tier available).
 The key is read only from this file, used only server-side, and is never sent

@@ -7,7 +7,7 @@ import { TranscriptPanel } from './TranscriptPanel.jsx'
 // the real transcript is shown -> the candidate reviews and submits through
 // the existing text engine. Question playback uses browser speech synthesis
 // until the AI voice provider connects.
-export default function VoiceWorkspace({ question, recorder, transcription, onRetryTranscription, onUseAnswer }) {
+export default function VoiceWorkspace({ interviewId, question, recorder, transcription, onRetryTranscription, onUseAnswer }) {
   const recorderBusy = ['recording', 'requesting', 'stopping'].includes(recorder.state)
   const busy = recorderBusy || transcription.status === 'processing'
 
@@ -15,7 +15,7 @@ export default function VoiceWorkspace({ question, recorder, transcription, onRe
     <div className="space-y-4">
       <section className="rounded-[8px] border border-line bg-surface px-5 py-5 sm:px-6">
         <h3 className="mb-3 text-sm font-medium text-ink">Listen to the question</h3>
-        <AudioPlayer text={question.text} disabled={recorderBusy} />
+        <AudioPlayer interviewId={interviewId} question={question} disabled={recorderBusy} />
       </section>
 
       <section className="rounded-[8px] border border-line bg-surface px-5 py-6 sm:px-6">

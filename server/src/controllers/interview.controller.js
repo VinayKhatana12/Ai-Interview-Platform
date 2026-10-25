@@ -12,6 +12,7 @@ import {
 } from "../services/interviewSession.service.js";
 import { buildResultsView, evaluateInterview } from "../services/evaluation.service.js";
 import { transcribeInterviewAudio } from "../services/transcription.service.js";
+import { generateQuestionSpeech, speechRequestSchema } from "../services/speech.service.js";
 
 // POST /api/interviews — owner derived from the session, never the body.
 async function create(req, res, next) {
@@ -109,4 +110,26 @@ async function transcribe(req, res, next) {
   }
 }
 
-export { create, list, detail, stats, start, session, answer, complete, evaluate, results, transcribe };
+// POST /:id/speech — binary audio of an existing question (trusted source,
+// never client text). X-Voice-Source names the provider for honest labeling.
+async function speech(req, res, next) {
+  try {
+    const parsed = speechRequestSchema.safeParse(req.body ?? {});
+    if (!parsed.success) {
+      return res.status(422).json({
+        error: { code: "VALIDATION_ERROR", message: "Some fields need attention.", details: { questionId: "Unknown question" } },
+      });
+    }
+    const { buffer, mimeType, source } = await generateQuestionSpeech(req.user.id, req.params.id, parsed.data);
+    res
+      .setHeader("Content-Type", mimeType)
+      .setHeader("Content-Length", buffer.length)
+      .setHeader("X-Voice-Source", source)
+      .setHeader("Cache-Control", "no-store")
+      .send(buffer);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export { create, list, detail, stats, start, session, answer, complete, evaluate, results, transcribe, speech };

@@ -468,6 +468,7 @@ export default function InterviewSession() {
 
       {answerMode === 'voice' ? (
         <VoiceWorkspace
+          interviewId={id}
           question={question}
           recorder={recorder}
           transcription={transcription}
