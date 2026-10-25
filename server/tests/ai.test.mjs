@@ -332,6 +332,24 @@ describe("POST /api/interviews/:id/evaluate + results", () => {
     expect(strong.body.practiceSuggestions).toEqual([]);
   });
 
+  it("accepts a fully incorrect answer's evaluation with no strengths (real-model shape)", async () => {
+    // Seen live (2026-10): grading an off-topic answer returns score 0 and
+    // strengths: [] — a legitimate verdict the schema must accept.
+    mockQuestionsThen({
+      ...aiEvaluation,
+      score: 0,
+      correctness: "INCORRECT",
+      strengths: [],
+      improvements: ["Answer the question that was asked"],
+    });
+    const id = await createAndComplete();
+    const res = await request(app).post(`/api/interviews/${id}/evaluate`).set("Cookie", cookieA);
+    expect(res.status).toBe(200);
+    expect(res.body.failures).toEqual([]);
+    expect(res.body.items[0].evaluation.score).toBe(0);
+    expect(res.body.items[0].evaluation.strengths).toEqual([]);
+  });
+
   it("uses the labeled fixture without a key and says so", async () => {
     process.env.AI_API_KEY = "";
     const id = await createAndComplete();

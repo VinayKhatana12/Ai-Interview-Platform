@@ -167,7 +167,7 @@ export async function submitAnswer(userId, interviewId, { questionId, responseTe
   const questions = await prisma.question.findMany({
     where: { interviewId },
     orderBy: { questionOrder: "asc" },
-    include: { answer: { select: { id: true } } },
+    include: { answer: { select: { id: true, submittedAt: true } } },
   });
   const target = questions.find((q) => q.id === questionId);
   if (!target) {
@@ -192,20 +192,35 @@ export async function submitAnswer(userId, interviewId, { questionId, responseTe
     throw conflict("TIME_EXPIRED", "Time is up for this interview. Finish it to see your results.");
   }
 
-  const elapsedSeconds = Math.max(
-    0,
-    Math.round((Date.now() - target.createdAt.getTime()) / 1000),
-  );
+  // Per-question timing: the clock starts when this question became current
+  // (the previous answer's submission, or the interview start), not when the
+  // question row was created — otherwise later questions inherit all the
+  // earlier answering time.
+  const priorSubmitAt = questions
+    .filter((q) => q.answer && q.questionOrder < target.questionOrder)
+    .reduce((latest, q) => (q.answer.submittedAt > latest ? q.answer.submittedAt : latest), interview.startedAt)
+  const elapsedSeconds = Math.max(0, Math.round((Date.now() - priorSubmitAt.getTime()) / 1000))
 
   // Persist before responding — success means the answer is in the database.
-  await prisma.answer.create({
-    data: {
-      questionId,
-      interviewId,
-      responseText,
-      timeTakenSeconds: elapsedSeconds,
-    },
-  });
+  // The unique index on answers.question_id also covers the concurrent
+  // double-submit race: both requests may pass the checks above, but only
+  // one row can exist; the loser returns the recorded state instead of 500.
+  try {
+    await prisma.answer.create({
+      data: {
+        questionId,
+        interviewId,
+        responseText,
+        timeTakenSeconds: elapsedSeconds,
+      },
+    });
+  } catch (err) {
+    if (err?.code === "P2002") {
+      const view = await buildSessionView(userId, interviewId);
+      return { ...view, alreadyRecorded: true };
+    }
+    throw err;
+  }
 
   const view = await buildSessionView(userId, interviewId);
   return { ...view, alreadyRecorded: false };

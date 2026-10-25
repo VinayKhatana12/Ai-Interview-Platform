@@ -52,24 +52,30 @@ function FeedbackCard({ item }) {
               </span>
             </div>
             <p className="text-sm leading-relaxed text-ink">{e.feedback}</p>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <p className="text-xs font-medium text-muted">Strengths</p>
-                <ul className="mt-1.5 list-disc space-y-1 pl-4 text-sm text-ink">
-                  {e.strengths.map((s, i) => (
-                    <li key={i}>{s}</li>
-                  ))}
-                </ul>
+            {(e.strengths.length > 0 || e.improvements.length > 0) && (
+              <div className="grid gap-4 sm:grid-cols-2">
+                {e.strengths.length > 0 && (
+                  <div>
+                    <p className="text-xs font-medium text-muted">Strengths</p>
+                    <ul className="mt-1.5 list-disc space-y-1 pl-4 text-sm text-ink">
+                      {e.strengths.map((s, i) => (
+                        <li key={i}>{s}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {e.improvements.length > 0 && (
+                  <div>
+                    <p className="text-xs font-medium text-muted">Improvements</p>
+                    <ul className="mt-1.5 list-disc space-y-1 pl-4 text-sm text-ink">
+                      {e.improvements.map((s, i) => (
+                        <li key={i}>{s}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
-              <div>
-                <p className="text-xs font-medium text-muted">Improvements</p>
-                <ul className="mt-1.5 list-disc space-y-1 pl-4 text-sm text-ink">
-                  {e.improvements.map((s, i) => (
-                    <li key={i}>{s}</li>
-                  ))}
-                </ul>
-              </div>
-            </div>
+            )}
             <details className="text-sm">
               <summary className="cursor-pointer text-muted underline underline-offset-2 hover:text-ink">
                 Model answer

@@ -20,10 +20,12 @@ export const questionSetSchema = z.object({
 export const evaluationSchema = z.object({
   score: z.coerce.number().min(0).max(100),
   correctness: z.enum(["CORRECT", "PARTIALLY_CORRECT", "INCORRECT"]),
-  feedback: z.string().trim().min(10).max(1200),
-  strengths: z.array(z.string().trim().min(3).max(200)).min(1).max(4),
-  improvements: z.array(z.string().trim().min(3).max(200)).min(1).max(4),
-  modelAnswer: z.string().trim().min(10).max(1200),
+  feedback: z.string().trim().min(1).max(1500),
+  // Empty lists are legitimate: a fully incorrect answer can have no
+  // strengths. Measured live against the real model (2026-10).
+  strengths: z.array(z.string().trim().min(1).max(200)).max(4),
+  improvements: z.array(z.string().trim().min(1).max(200)).max(4),
+  modelAnswer: z.string().trim().min(1).max(1500),
 });
 
 // Gemini's responseSchema: a subset of OpenAPI schema. Field order and

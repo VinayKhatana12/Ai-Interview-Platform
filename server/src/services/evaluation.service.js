@@ -128,17 +128,24 @@ async function evaluateOne(interview, question, answer) {
         answerText: answer.responseText,
       });
 
-  await prisma.evaluation.create({
-    data: {
-      answerId: answer.id,
-      score: result.score,
-      correctness: result.correctness,
-      feedback: result.feedback,
-      strengths: result.strengths,
-      improvements: result.improvements,
-      modelAnswer: result.modelAnswer,
-    },
-  });
+  try {
+    await prisma.evaluation.create({
+      data: {
+        answerId: answer.id,
+        score: result.score,
+        correctness: result.correctness,
+        feedback: result.feedback,
+        strengths: result.strengths,
+        improvements: result.improvements,
+        modelAnswer: result.modelAnswer,
+      },
+    });
+  } catch (err) {
+    // Concurrent evaluate runs race on the unique answerId; the row exists,
+    // which is the outcome this function promises.
+    if (err?.code === "P2002") return { ok: true };
+    throw err;
+  }
   return { ok: true };
 }
 
@@ -168,9 +175,17 @@ export async function evaluateInterview(userId, interviewId) {
       try {
         await evaluateOne(interview, q, q.answer);
       } catch (err) {
-        const code = err instanceof AiError ? err.code : "INTERNAL";
-        console.error(`[evaluation] answer ${q.answer.id} failed:`, err.message);
-        failures.push({ questionOrder: q.questionOrder, code, message: err.message });
+        // AiErrors carry our own client-safe messages; anything else is
+        // logged server-side and reported generically so Prisma/provider
+        // internals never reach the client.
+        const isOurs = err instanceof AiError
+        const code = isOurs ? err.code : "INTERNAL"
+        if (!isOurs) console.error(`[evaluation] answer ${q.answer.id} failed:`, err?.code ?? err?.constructor?.name)
+        failures.push({
+          questionOrder: q.questionOrder,
+          code,
+          message: isOurs ? err.message : "This answer could not be evaluated. Retry keeps already-evaluated answers.",
+        })
       }
     }
   }
