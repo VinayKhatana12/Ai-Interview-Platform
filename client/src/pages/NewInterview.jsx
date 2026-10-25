@@ -178,7 +178,7 @@ export default function NewInterview() {
         </div>
 
         <div className="flex items-center justify-between gap-4 border-t border-rule pt-5">
-          <Link to="/" className="text-sm text-muted underline underline-offset-2 hover:text-ink">
+          <Link to="/dashboard" className="text-sm text-muted underline underline-offset-2 hover:text-ink">
             Cancel
           </Link>
           <button

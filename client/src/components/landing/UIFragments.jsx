@@ -92,7 +92,7 @@ const PAD = { l: 34, r: 40, t: 10, b: 22 }
 export function KpiFragment() {
   return (
     <div data-ui className="overflow-hidden rounded-[8px] border border-line bg-surface">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-5 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 bg-raised px-5 py-3">
         <p className="text-sm font-medium">Dashboard · Browser Check</p>
         <p className="text-xs text-muted">25 Oct 2026</p>
       </div>

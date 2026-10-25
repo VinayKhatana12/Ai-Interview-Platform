@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useAuth } from '../auth/AuthContext.jsx'
 import { BrandMark } from '../components/BrandMark.jsx'
 import { ReportFragment, VoiceFragment, TrendFragment, KpiFragment } from '../components/landing/UIFragments.jsx'
 
@@ -126,6 +127,8 @@ const FAQ_ITEMS = [
 ]
 
 export default function Landing() {
+  const { user } = useAuth()
+
   return (
     <div id="top" className="bg-ground text-ink">
       <main>
@@ -141,15 +144,26 @@ export default function Landing() {
           <a href="#faq" className="hover:text-ink">FAQ</a>
         </nav>
         <div className="flex items-center gap-5">
-          <Link to="/login" className="text-base text-ink underline-offset-4 hover:underline">
-            Sign in
-          </Link>
-          <Link
-            to="/register"
-            className="inline-flex h-11 items-center rounded-[6px] bg-primary px-5 text-base font-medium text-white hover:opacity-90"
-          >
-            Start free
-          </Link>
+          {user ? (
+            <Link
+              to="/dashboard"
+              className="inline-flex h-11 items-center rounded-[6px] bg-primary px-5 text-base font-medium text-white hover:opacity-90"
+            >
+              Open dashboard
+            </Link>
+          ) : (
+            <>
+              <Link to="/login" className="text-base text-ink underline-offset-4 hover:underline">
+                Sign in
+              </Link>
+              <Link
+                to="/register"
+                className="inline-flex h-11 items-center rounded-[6px] bg-primary px-5 text-base font-medium text-white hover:opacity-90"
+              >
+                Start free
+              </Link>
+            </>
+          )}
         </div>
       </header>
 
@@ -168,10 +182,10 @@ export default function Landing() {
             <Reveal delay={700}>
               <div className="mt-10 flex flex-wrap items-center gap-4">
                 <Link
-                  to="/register"
+                  to={user ? '/dashboard' : '/register'}
                   className="inline-flex h-12 items-center rounded-[6px] bg-primary px-6 text-base font-medium text-white hover:opacity-90"
                 >
-                  Start practising free
+                  {user ? 'Open your dashboard' : 'Start practising free'}
                 </Link>
                 <a href="#how" className="text-base text-ink underline-offset-4 hover:underline">
                   See how it works
@@ -344,15 +358,17 @@ export default function Landing() {
                 </a>
               </li>
               <li>
-                <Link to="/register" className="text-white underline-offset-4 hover:underline">
-                  Start free
+                <Link to={user ? '/dashboard' : '/register'} className="text-white underline-offset-4 hover:underline">
+                  {user ? 'Open dashboard' : 'Start free'}
                 </Link>
               </li>
-              <li>
-                <Link to="/login" className="text-white underline-offset-4 hover:underline">
-                  Sign in
-                </Link>
-              </li>
+              {!user && (
+                <li>
+                  <Link to="/login" className="text-white underline-offset-4 hover:underline">
+                    Sign in
+                  </Link>
+                </li>
+              )}
             </ul>
           </div>
           <div className="grid grid-cols-2 gap-10 text-base lg:col-span-7 lg:grid-cols-3">
@@ -367,6 +383,7 @@ export default function Landing() {
             <div>
               <p className="text-white/50">The app</p>
               <ul className="mt-4 space-y-2.5">
+                {user && <li><Link to="/dashboard" className="text-white/80 hover:text-white">Dashboard</Link></li>}
                 <li><Link to="/register" className="text-white/80 hover:text-white">Create account</Link></li>
                 <li><Link to="/login" className="text-white/80 hover:text-white">Sign in</Link></li>
               </ul>
@@ -402,6 +419,7 @@ export default function Landing() {
 // CTA with the inline email blank; the submit hands off to the real register
 // route with the email prefilled.
 function CtaWithBlank() {
+  const { user } = useAuth()
   const [email, setEmail] = useState('')
   function handleSubmit(e) {
     e.preventDefault()
@@ -410,6 +428,22 @@ function CtaWithBlank() {
   }
   return (
     <section className="px-6 py-32 md:px-12">
+      {user ? (
+        <div>
+          <p className="max-w-[1100px] text-[clamp(30px,4.6vw,56px)] font-medium leading-[1.08] tracking-[-0.03em]">
+            Your ledger is open. Next entry is yours.
+          </p>
+          <div className="mt-8 flex flex-wrap items-center gap-4">
+            <Link
+              to="/dashboard"
+              className="inline-flex h-12 items-center rounded-[6px] bg-primary px-6 text-base font-medium text-white hover:opacity-90"
+            >
+              Open dashboard
+            </Link>
+            <p className="text-base text-muted">Every finished interview lands in your history and analytics.</p>
+          </div>
+        </div>
+      ) : (
       <form onSubmit={handleSubmit}>
         <label htmlFor="cta-email" className="sr-only">
           Your email
@@ -436,6 +470,7 @@ function CtaWithBlank() {
           <p className="text-base text-muted">Free while in development. No card, no spam. The email just pre-fills your sign-up.</p>
         </div>
       </form>
+      )}
     </section>
   )
 }

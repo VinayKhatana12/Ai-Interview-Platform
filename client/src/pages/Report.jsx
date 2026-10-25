@@ -321,7 +321,7 @@ export default function Report() {
 
       <div className="flex gap-3 print:hidden">
         <Link
-          to="/"
+          to="/dashboard"
           className="h-9 rounded-[6px] bg-primary px-4 text-sm font-medium leading-9 text-white hover:opacity-90"
         >
           Back to dashboard

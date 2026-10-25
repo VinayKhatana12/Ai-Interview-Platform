@@ -16,7 +16,7 @@ export default function Login() {
   const [apiError, setApiError] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
-  const backTo = location.state?.from?.pathname || '/'
+  const backTo = location.state?.from?.pathname || '/dashboard'
 
   async function handleSubmit(e) {
     e.preventDefault()

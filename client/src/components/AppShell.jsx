@@ -1,12 +1,15 @@
-import { NavLink, Outlet } from 'react-router-dom'
-import { ChartNoAxesColumn, History, LayoutDashboard, Plus, UserRound } from 'lucide-react'
+import { Link, NavLink, Outlet } from 'react-router-dom'
+import { ChartNoAxesColumn, History, House, LayoutDashboard, Plus, UserRound } from 'lucide-react'
 import { BrandMark } from './BrandMark.jsx'
 
 // Shell per the dealt sheet: an unlabelled icon rail (56px) on the page
 // ground with a 1px edge; the active item is a full-bleed tint band with an
 // ink icon. On the phone the rail folds into a bottom bar with short labels.
+// "Home" is the public landing (/); the working dashboard lives at
+// /dashboard.
 const NAV = [
-  { to: '/', icon: LayoutDashboard, label: 'Dashboard', short: 'Home', end: true },
+  { to: '/', icon: House, label: 'Home', short: 'Home' },
+  { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', short: 'Dash' },
   { to: '/interviews/new', icon: Plus, label: 'New interview', short: 'New' },
   { to: '/analytics', icon: ChartNoAxesColumn, label: 'Analytics', short: 'Stats' },
   { to: '/history', icon: History, label: 'History', short: 'History' },
@@ -45,13 +48,15 @@ function RailItem({ to, icon: Icon, label, short, end, bottom = false }) {
 
 export default function AppShell({ children }) {
   return (
-    <div className="min-h-screen bg-ground">
+    <div className="min-h-svh bg-ground">
       {/* Desktop rail */}
       <nav
         aria-label="Main"
         className="fixed inset-y-0 left-0 z-30 hidden w-14 flex-col items-center gap-1 border-r border-line bg-ground py-3 md:flex"
       >
-        <BrandMark size={22} />
+        <Link to="/" aria-label="Interview Ledger home" title="Interview Ledger home">
+          <BrandMark size={22} />
+        </Link>
         <div className="mt-4 flex flex-col gap-1">
           {NAV.map((item) => (
             <RailItem key={item.to} {...item} />

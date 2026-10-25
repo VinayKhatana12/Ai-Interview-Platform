@@ -34,7 +34,7 @@ export default function Register() {
     setSubmitting(true)
     try {
       await register(name, email, password)
-      navigate('/', { replace: true })
+      navigate('/dashboard', { replace: true })
     } catch (err) {
       if (err.details) setFieldErrors(err.details)
       else setApiError(err.message)

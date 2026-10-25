@@ -33,7 +33,7 @@ export function GuestRoute({ children }) {
 
   if (status === 'loading') return <SessionLoading />
   if (user) {
-    const backTo = location.state?.from?.pathname || '/'
+    const backTo = location.state?.from?.pathname || '/dashboard'
     return <Navigate to={backTo} replace />
   }
   return children

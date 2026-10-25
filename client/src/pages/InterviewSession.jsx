@@ -336,7 +336,7 @@ export default function InterviewSession() {
               View full report
             </Link>
             <Link
-              to="/"
+              to="/dashboard"
               className="h-9 rounded-[6px] border border-control bg-surface px-4 text-sm leading-9 text-ink hover:bg-raised"
             >
               Back to dashboard
