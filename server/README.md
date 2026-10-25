@@ -22,7 +22,8 @@ npm run dev                 # http://localhost:3000
 | `AI_API_KEY` | no | Google Gemini API key. **Without it the app runs on clearly-labeled development fixtures** (question set + heuristic feedback). With it, every generation/evaluation call goes to the real provider. |
 | `AI_MODEL` | no | Default `gemini-flash-lite-latest` (lite tier answers in ~1-3s; the 2.5 line is retired for new keys and 3.x thinking models take 40s+ per call). |
 | `AI_TIMEOUT_MS` | no | Per-request timeout, default 30000. |
-| `OPENAI_API_KEY` | no | OpenAI key for speech-to-text (`gpt-transcribe`) on `POST /api/interviews/:id/transcribe`. Without it the endpoint returns a clear 503 `STT_NOT_CONFIGURED`. https://platform.openai.com/api-keys |
+| `OPENAI_API_KEY` | no | Alternative transcription provider (`gpt-transcribe`). Used only when `AI_API_KEY` is absent — Gemini is the primary (free) transcriber. https://platform.openai.com/api-keys |
+| `STT_MODEL` | no | Gemini transcription model override; default `gemini-3.5-transcribe`. |
 
 Get a Gemini key at https://aistudio.google.com/apikey (free tier available).
 The key is read only from this file, used only server-side, and is never sent

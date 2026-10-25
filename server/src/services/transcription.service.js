@@ -3,7 +3,8 @@
 // Phase 2.2); duplicate calls simply re-run and are guarded client-side.
 import { prisma } from "../db/prisma.js";
 import { HttpError } from "../utils/HttpError.js";
-import { isAllowedAudioType, transcribeAudio } from "./ai/openaiTranscription.js";
+import { isAllowedAudioType } from "./ai/audioFormats.js";
+import { transcribeAudio } from "./ai/sttProvider.js";
 
 const MIN_AUDIO_BYTES = 1024; // smaller than this is not a real recording
 

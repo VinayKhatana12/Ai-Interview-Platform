@@ -1,4 +1,5 @@
-// OpenAI speech-to-text (gpt-transcribe), server-only.
+// OpenAI speech-to-text (gpt-transcribe), server-only. Alternative provider;
+// the app prefers the free Gemini key (see sttProvider.js).
 //
 // Reads OPENAI_API_KEY at call time (absent/empty -> typed 503). All errors
 // map to stable codes with client-safe messages; provider details and audio
@@ -27,28 +28,6 @@ function getClient() {
 
 export function isTranscriptionConfigured() {
   return Boolean(process.env.OPENAI_API_KEY);
-}
-
-// Accepts the browser MediaRecorder formats the platform records (webm/opus,
-// mp4, ogg) plus the provider's other supported types.
-const ALLOWED_PREFIXES = [
-  "audio/webm",
-  "video/webm", // some engines label webm recordings this way
-  "audio/mp4",
-  "video/mp4",
-  "audio/ogg",
-  "audio/mpeg",
-  "audio/mpga",
-  "audio/x-m4a",
-  "audio/m4a",
-  "audio/wav",
-  "audio/x-wav",
-  "audio/x-matroska",
-];
-
-export function isAllowedAudioType(mimeType) {
-  const base = (mimeType ?? "").split(";")[0].trim().toLowerCase();
-  return ALLOWED_PREFIXES.includes(base);
 }
 
 export async function transcribeAudio({ buffer, mimeType }) {

@@ -262,3 +262,99 @@ describe("POST /api/interviews/:id/transcribe", () => {
     expect(res.body.error.code).toBe("TIME_EXPIRED");
   });
 });
+
+describe("POST /api/interviews/:id/transcribe — Gemini provider (fetch stubbed)", () => {
+  const realFetch = globalThis.fetch;
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    delete process.env.AI_API_KEY;
+    process.env.OPENAI_API_KEY = "test-openai-key";
+  });
+
+  function stubGemini(responses) {
+    const queue = [...responses];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        const next = queue.shift() ?? { ok: true, status: 200, json: async () => ({ candidates: [{ content: { parts: [{ audioTranscription: { text: "fallback text" } }] } }] }) };
+        return next;
+      }),
+    );
+  }
+
+  it("uses Gemini when AI_API_KEY is set, even with an OpenAI key present", async () => {
+    process.env.AI_API_KEY = "test-gemini-key";
+    stubGemini([
+      {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          candidates: [{ content: { parts: [{ audioTranscription: { text: "  Gemini heard this answer.  " } }] } }],
+        }),
+      },
+    ]);
+
+    const res = await postAudio();
+    expect(res.status).toBe(200);
+    expect(res.body.transcript).toBe("Gemini heard this answer.");
+    const url = vi.mocked(globalThis.fetch).mock.calls[0][0];
+    expect(String(url)).toContain("gemini-3.5-transcribe");
+    // OpenAI SDK untouched: provider selection picked Gemini.
+    expect(mockCreate).not.toHaveBeenCalled();
+  });
+
+  it("retries transient 503 high-demand responses and succeeds", async () => {
+    process.env.AI_API_KEY = "test-gemini-key";
+    stubGemini([
+      { ok: false, status: 503, json: async () => ({ error: { status: "UNAVAILABLE" } }) },
+      {
+        ok: true,
+        status: 200,
+        json: async () => ({ candidates: [{ content: { parts: [{ audioTranscription: { text: "After retry." } }] } }] }),
+      },
+    ]);
+
+    const res = await postAudio();
+    expect(res.status).toBe(200);
+    expect(res.body.transcript).toBe("After retry.");
+    expect(vi.mocked(globalThis.fetch)).toHaveBeenCalledTimes(2);
+  });
+
+  it("maps rate limits, invalid audio and oversized payloads", async () => {
+    process.env.AI_API_KEY = "test-gemini-key";
+
+    stubGemini([
+      { ok: false, status: 429, json: async () => ({ error: { code: 429 } }) },
+      { ok: false, status: 429, json: async () => ({ error: { code: 429 } }) },
+      { ok: false, status: 429, json: async () => ({ error: { code: 429 } }) },
+      { ok: false, status: 429, json: async () => ({ error: { code: 429 } }) },
+    ]);
+    const limited = await postAudio();
+    expect(limited.status).toBe(429);
+    expect(limited.body.error.code).toBe("STT_RATE_LIMITED");
+    expect(vi.mocked(globalThis.fetch)).toHaveBeenCalledTimes(4);
+    vi.unstubAllGlobals();
+
+    stubGemini([{ ok: false, status: 400, json: async () => ({ error: { code: 400 } }) }]);
+    const invalid = await postAudio();
+    expect(invalid.status).toBe(422);
+    expect(invalid.body.error.code).toBe("STT_INVALID_AUDIO");
+    vi.unstubAllGlobals();
+
+    // Over the 14 MB inline ceiling for the Gemini tier (before any fetch).
+    stubGemini([]);
+    const huge = await postAudio(cookieA, Buffer.alloc(15 * 1024 * 1024, 1));
+    expect(huge.status).toBe(413);
+    expect(huge.body.error.code).toBe("AUDIO_TOO_LARGE");
+    expect(vi.mocked(globalThis.fetch)).not.toHaveBeenCalled();
+  }, 20000);
+
+  it("falls back to OpenAI when only OPENAI_API_KEY is set", async () => {
+    mockCreate.mockResolvedValueOnce({ text: "OpenAI path transcript." });
+    const res = await postAudio();
+    expect(res.status).toBe(200);
+    expect(res.body.transcript).toBe("OpenAI path transcript.");
+    expect(mockCreate).toHaveBeenCalledTimes(1);
+  });
+});
