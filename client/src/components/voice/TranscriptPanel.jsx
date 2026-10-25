@@ -1,45 +1,28 @@
-import { useEffect, useState } from 'react'
-
-// The future voice workflow, made explicit as a pipeline:
-//   recorded -> transcribing -> transcript validated -> submitted
-// Phase 2.1 simulates the transcribing step for UI demonstration only and
-// stops there: the real transcription service connects in Phase 2.2. No
-// transcript is fabricated and no answer is submitted from this panel.
+// Transcript panel: real states of the voice-answer pipeline. The transcript
+// comes from the server's transcription endpoint; success is shown only
+// after a real response, errors carry a retry that resends the same
+// recording, and submitting happens only when the candidate reviews the
+// transcript and acts.
 const STEPS = [
-  { key: 'recorded', label: 'Recording captured', future: false },
-  { key: 'transcribing', label: 'Transcribing', future: false },
-  { key: 'validated', label: 'Transcript validated', future: true },
-  { key: 'submitted', label: 'Answer submitted', future: true },
+  { key: 'recorded', label: 'Recording captured' },
+  { key: 'transcribing', label: 'Transcribing' },
+  { key: 'ready', label: 'Transcript ready' },
+  { key: 'submitted', label: 'Answer submitted' },
 ]
 
-export function TranscriptPanel({ recorderState, hasRecording, recordingUrl, onSwitchToTyped }) {
-  const [simulated, setSimulated] = useState('idle') // idle | processing | stopped-here
-
-  // When a recording lands, run the clearly-labeled prototype simulation.
-  useEffect(() => {
-    if (hasRecording) {
-      setSimulated('processing')
-      const t = setTimeout(() => setSimulated('stopped-here'), 1600)
-      return () => clearTimeout(t)
-    }
-    setSimulated('idle')
-  }, [hasRecording, recordingUrl])
-
+export function TranscriptPanel({ status, transcript, error, onRetry, onUseAnswer }) {
   const stateOf = (key) => {
-    const idx = STEPS.findIndex((s) => s.key === key)
-    if (!hasRecording) return 'pending'
-    if (simulated === 'processing') return idx === 0 ? 'done' : idx === 1 ? 'active' : 'pending'
-    // Simulation finished: everything after transcription is future work.
-    return idx <= 1 ? 'done' : 'pending'
+    if (status === 'idle') return 'pending'
+    if (status === 'processing') return key === 'recorded' ? 'done' : key === 'transcribing' ? 'active' : 'pending'
+    if (status === 'done') return key === 'recorded' || key === 'transcribing' || key === 'ready' ? 'done' : 'pending'
+    // error: the recording exists; transcription did not complete.
+    return key === 'recorded' ? 'done' : 'pending'
   }
 
   return (
     <section className="rounded-[8px] border border-line bg-surface">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-rule px-5 py-4">
+      <div className="border-b border-rule px-5 py-4">
         <h3 className="text-base font-medium text-ink">Transcript</h3>
-        <span className="inline-flex h-6 items-center rounded-full bg-[#fffbeb] px-2.5 text-xs font-medium text-[#92400e]">
-          Prototype
-        </span>
       </div>
       <div className="space-y-4 px-5 py-5">
         <ol className="grid gap-2 sm:grid-cols-4">
@@ -54,48 +37,60 @@ export function TranscriptPanel({ recorderState, hasRecording, recordingUrl, onS
                       st === 'done' ? 'bg-ink' : st === 'active' ? 'animate-pulse bg-[#1d5fbf] motion-reduce:animate-none' : 'bg-raised'
                     }`}
                   />
-                  <span
-                    className={`text-xs ${st === 'pending' ? 'text-muted/70' : 'text-ink'}`}
-                  >
+                  <span className={`text-xs ${st === 'pending' ? 'text-muted/70' : 'text-ink'}`}>
                     {i + 1}. {step.label}
                   </span>
                 </span>
-                {step.future && <span className="pl-3.5 text-[11px] text-muted/70 sm:pl-0">Phase 2.2</span>}
               </li>
             )
           })}
         </ol>
 
-        {!hasRecording && (
+        {status === 'idle' && (
           <p className="text-sm text-muted">
-            Your spoken answer will appear here once recorded. Recording stays on this device.
+            Your spoken answer will appear here once recorded. The recording is sent for
+            transcription when you stop; nothing is stored.
           </p>
         )}
 
-        {simulated === 'processing' && (
+        {status === 'processing' && (
           <p role="status" className="text-sm text-ink">
-            Transcribing your recording<span className="text-muted"> (simulated for this prototype, ~2 s)</span>…
+            Uploading your recording and transcribing it…
           </p>
         )}
 
-        {simulated === 'stopped-here' && (
-          <div className="space-y-2">
-            <p role="status" className="text-sm text-[#92400e]">
-              The transcription service is not connected yet. This recording was processed by a local
-              simulation only, no transcript was produced, and nothing was submitted.
+        {status === 'done' && (
+          <div className="space-y-3">
+            <p className="text-xs text-muted">Transcript. Read it through before submitting; you can edit after switching to Typed.</p>
+            <p className="whitespace-pre-wrap rounded-[6px] border border-rule bg-raised px-4 py-3 text-sm leading-relaxed text-ink">
+              {transcript}
             </p>
-            <p className="text-sm text-muted">
-              To submit this answer now,{' '}
+            <div className="flex flex-wrap items-center gap-3">
               <button
                 type="button"
-                onClick={onSwitchToTyped}
-                className="text-ink underline underline-offset-2 hover:opacity-80"
+                onClick={onUseAnswer}
+                className="h-9 rounded-[6px] bg-primary px-4 text-sm font-medium text-white transition-opacity hover:opacity-90"
               >
-                switch to Typed
-              </button>{' '}
-              and submit your text through the real interview engine. Voice submission arrives with
-              transcription in Phase 2.2.
-            </p>
+                Review and submit
+              </button>
+              <span className="text-xs text-muted">Fills the answer editor so you can edit and submit for real.</span>
+            </div>
+          </div>
+        )}
+
+        {status === 'error' && (
+          <div className="space-y-3" role="alert">
+            <p className="text-sm text-negative">{error}</p>
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={onRetry}
+                className="h-9 rounded-[6px] border border-control bg-surface px-4 text-sm text-ink hover:bg-raised"
+              >
+                Retry transcription
+              </button>
+              <span className="text-xs text-muted">Sends the same recording again. You can also record a new answer.</span>
+            </div>
           </div>
         )}
       </div>

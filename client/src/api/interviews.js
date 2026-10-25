@@ -16,3 +16,8 @@ export const submitAnswer = (id, questionId, responseText) =>
 export const completeInterview = (id) => api(`/api/interviews/${id}/complete`, { method: 'POST' })
 export const getInterviewResults = (id) => api(`/api/interviews/${id}/results`)
 export const evaluateInterview = (id) => api(`/api/interviews/${id}/evaluate`, { method: 'POST' })
+export const transcribeRecording = (id, blob) => {
+  const form = new FormData()
+  form.append('audio', blob, 'recording.webm')
+  return api(`/api/interviews/${id}/transcribe`, { method: 'POST', body: form })
+}

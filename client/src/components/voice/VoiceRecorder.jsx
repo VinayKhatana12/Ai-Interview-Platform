@@ -10,10 +10,11 @@ function fmt(sec) {
 // from useRecorder. Permission is requested only by pressing it. While
 // recording the button carries the recording-status red; the waveform
 // carries the data hue.
-export function VoiceRecorder({ recorder }) {
+export function VoiceRecorder({ recorder, disabled = false }) {
   const { state, error, level, elapsed, recordingUrl, start, stop, reset } = recorder
   const busy = state === 'requesting' || state === 'stopping'
   const recording = state === 'recording'
+  const startDisabled = busy || disabled
 
   let statusLine = 'Press the microphone to record your answer.'
   if (state === 'requesting') statusLine = 'Requesting microphone permission…'
@@ -28,7 +29,7 @@ export function VoiceRecorder({ recorder }) {
       <button
         type="button"
         onClick={recording ? stop : start}
-        disabled={busy}
+        disabled={startDisabled}
         aria-label={recording ? 'Stop recording' : 'Start recording'}
         aria-pressed={recording}
         className={`flex h-16 w-16 items-center justify-center rounded-full text-white transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink disabled:opacity-60 ${

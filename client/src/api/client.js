@@ -11,12 +11,15 @@ export class ApiError extends Error {
 
 export async function api(path, { method = 'GET', body } = {}) {
   let res
+  // FormData (file uploads) must not get a JSON content type; the browser
+  // sets the multipart boundary itself.
+  const isForm = typeof FormData !== 'undefined' && body instanceof FormData
   try {
     res = await fetch(path, {
       method,
       credentials: 'same-origin',
-      headers: body !== undefined ? { 'Content-Type': 'application/json' } : undefined,
-      body: body !== undefined ? JSON.stringify(body) : undefined,
+      headers: body !== undefined && !isForm ? { 'Content-Type': 'application/json' } : undefined,
+      body: body === undefined ? undefined : isForm ? body : JSON.stringify(body),
     })
   } catch {
     throw new ApiError('Could not reach the server. Check your connection and try again.', 'NETWORK', 0)

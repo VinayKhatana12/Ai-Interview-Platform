@@ -20,8 +20,9 @@ npm run dev                 # http://localhost:3000
 | `JWT_SECRET` | yes | ≥32 chars. Generate: `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"` |
 | `AI_PROVIDER` | no | `gemini` (default) |
 | `AI_API_KEY` | no | Google Gemini API key. **Without it the app runs on clearly-labeled development fixtures** (question set + heuristic feedback). With it, every generation/evaluation call goes to the real provider. |
-| `AI_MODEL` | no | Default `gemini-2.5-flash`. |
+| `AI_MODEL` | no | Default `gemini-flash-lite-latest` (lite tier answers in ~1-3s; the 2.5 line is retired for new keys and 3.x thinking models take 40s+ per call). |
 | `AI_TIMEOUT_MS` | no | Per-request timeout, default 30000. |
+| `OPENAI_API_KEY` | no | OpenAI key for speech-to-text (`gpt-transcribe`) on `POST /api/interviews/:id/transcribe`. Without it the endpoint returns a clear 503 `STT_NOT_CONFIGURED`. https://platform.openai.com/api-keys |
 
 Get a Gemini key at https://aistudio.google.com/apikey (free tier available).
 The key is read only from this file, used only server-side, and is never sent

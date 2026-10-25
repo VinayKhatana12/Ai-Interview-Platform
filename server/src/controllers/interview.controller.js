@@ -11,6 +11,7 @@ import {
   submitAnswer,
 } from "../services/interviewSession.service.js";
 import { buildResultsView, evaluateInterview } from "../services/evaluation.service.js";
+import { transcribeInterviewAudio } from "../services/transcription.service.js";
 
 // POST /api/interviews — owner derived from the session, never the body.
 async function create(req, res, next) {
@@ -99,4 +100,13 @@ async function results(req, res, next) {
   }
 }
 
-export { create, list, detail, stats, start, session, answer, complete, evaluate, results };
+// POST /:id/transcribe — multipart audio -> transcript (stateless, not persisted).
+async function transcribe(req, res, next) {
+  try {
+    res.json(await transcribeInterviewAudio(req.user.id, req.params.id, req.file));
+  } catch (err) {
+    next(err);
+  }
+}
+
+export { create, list, detail, stats, start, session, answer, complete, evaluate, results, transcribe };

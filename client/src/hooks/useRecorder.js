@@ -21,6 +21,7 @@ export function useRecorder() {
   const [level, setLevel] = useState(0)
   const [elapsed, setElapsed] = useState(0)
   const [recordingUrl, setRecordingUrl] = useState(null)
+  const [recordingBlob, setRecordingBlob] = useState(null)
   const [recordingSize, setRecordingSize] = useState(0)
 
   const recorderRef = useRef(null)
@@ -62,6 +63,7 @@ export function useRecorder() {
     chunksRef.current = []
     if (mountedRef.current) {
       setRecordingUrl(null)
+      setRecordingBlob(null)
       setRecordingSize(0)
     }
   }, [])
@@ -161,6 +163,7 @@ export function useRecorder() {
         urlRef.current = URL.createObjectURL(blob)
         if (mountedRef.current) {
           setRecordingUrl(urlRef.current)
+          setRecordingBlob(blob)
           setRecordingSize(blob.size)
         }
         setSt('idle')
@@ -211,5 +214,5 @@ export function useRecorder() {
     setSt('idle')
   }, [discardRecording])
 
-  return { state, stateRef, error, level, elapsed, recordingUrl, recordingSize, start, stop, reset }
+  return { state, stateRef, error, level, elapsed, recordingUrl, recordingBlob, recordingSize, start, stop, reset }
 }

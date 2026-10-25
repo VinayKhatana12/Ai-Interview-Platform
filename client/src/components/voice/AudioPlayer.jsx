@@ -138,7 +138,7 @@ export function AudioPlayer({ text, disabled = false }) {
           {error}
         </p>
       )}
-      <p className="text-xs text-muted">Browser speech synthesis, not an AI voice. AI playback arrives in Phase 2.2.</p>
+      <p className="text-xs text-muted">Browser speech synthesis, not an AI voice. AI playback arrives with the voice provider.</p>
     </div>
   )
 }

@@ -26,6 +26,12 @@ const schema = z.object({
   // new-user deprecation that retired the 2.5 line.
   AI_MODEL: z.string().min(1).default("gemini-flash-lite-latest"),
   AI_TIMEOUT_MS: z.coerce.number().int().min(1000).max(120000).default(30000),
+  // Speech-to-text (OpenAI gpt-transcribe). Without OPENAI_API_KEY the
+  // transcribe endpoint answers 503 STT_NOT_CONFIGURED; empty counts as unset.
+  OPENAI_API_KEY: z.preprocess(
+    (v) => (v === "" ? undefined : v),
+    z.string().min(1).optional(),
+  ),
 });
 
 const parsed = schema.safeParse(process.env);

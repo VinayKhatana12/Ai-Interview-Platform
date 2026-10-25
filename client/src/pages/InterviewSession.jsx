@@ -5,6 +5,7 @@ import {
   getInterviewSession,
   startInterview,
   submitAnswer,
+  transcribeRecording,
 } from '../api/interviews.js'
 import { PageSkeleton } from '../components/Skeletons.jsx'
 import { BlockError } from '../components/States.jsx'
@@ -90,9 +91,12 @@ export default function InterviewSession() {
     () => localStorage.getItem(`il:voice-pref:${id}`) === 'voice' ? 'voice' : 'typed',
   )
   const recorder = useRecorder()
+  const [transcription, setTranscription] = useState({ status: 'idle', transcript: '', error: '' })
+  const transcriptionBusyRef = useRef(false)
 
   function switchAnswerMode(next) {
     if (['recording', 'requesting', 'stopping'].includes(recorder.state)) return
+    if (transcription.status === 'processing') return
     setAnswerMode(next)
     localStorage.setItem(`il:voice-pref:${id}`, next)
   }
@@ -101,6 +105,8 @@ export default function InterviewSession() {
   sessionRef.current = session
   const recorderStateRef = useRef('idle')
   recorderStateRef.current = recorder.state
+  const transcriptionStatusRef = useRef('idle')
+  transcriptionStatusRef.current = transcription.status
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -181,18 +187,55 @@ export default function InterviewSession() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, question?.id])
 
+  // Real transcription flow: a finished recording is sent to the server
+  // automatically; retry resends the same recording. A ref guard makes
+  // double-triggers (React strict mode, quick re-records) harmless.
+  const runTranscription = useCallback(
+    async (blob) => {
+      if (transcriptionBusyRef.current) return
+      transcriptionBusyRef.current = true
+      setTranscription({ status: 'processing', transcript: '', error: '' })
+      try {
+        const result = await transcribeRecording(id, blob)
+        setTranscription({ status: 'done', transcript: result.transcript, error: '' })
+      } catch (err) {
+        setTranscription({ status: 'error', transcript: '', error: err.message })
+      } finally {
+        transcriptionBusyRef.current = false
+      }
+    },
+    [id],
+  )
+
+  useEffect(() => {
+    if (recorder.recordingBlob) {
+      runTranscription(recorder.recordingBlob)
+    } else {
+      transcriptionBusyRef.current = false
+      setTranscription({ status: 'idle', transcript: '', error: '' })
+    }
+  }, [recorder.recordingBlob, runTranscription])
+
+  function useTranscriptAsAnswer() {
+    onAnswerChange(transcription.transcript)
+    switchAnswerMode('typed')
+  }
+
   const shouldBlock = useCallback(
     () => {
       if (sessionRef.current?.phase !== 'in_progress') return false
       if (['recording', 'requesting', 'stopping'].includes(recorderStateRef.current)) return true
+      if (transcriptionStatusRef.current === 'processing') return true
       return Boolean(answer.trim())
     },
     [answer],
   )
   const blocker = useBlocker(shouldBlock)
-  const leaveReason = ['recording', 'requesting', 'stopping'].includes(recorderStateRef.current)
-    ? 'recording'
-    : 'draft'
+  const leaveReason =
+    ['recording', 'requesting', 'stopping'].includes(recorderStateRef.current) ||
+    transcriptionStatusRef.current === 'processing'
+      ? 'recording'
+      : 'draft'
 
   // Server clock offset so the countdown matches the server's deadline,
   // not the device's clock.
@@ -410,7 +453,7 @@ export default function InterviewSession() {
 
       <div className="flex items-center justify-between gap-3">
         <p className="text-xs text-muted">
-          {answerMode === 'voice' ? 'Voice practice is a prototype until transcription arrives.' : ''}
+          {answerMode === 'voice' ? 'Recorded answers are transcribed on the server; review the transcript before submitting.' : ''}
         </p>
         <SegmentedControl
           ariaLabel="Answer mode"
@@ -418,13 +461,19 @@ export default function InterviewSession() {
           onChange={switchAnswerMode}
           options={[
             { value: 'typed', label: 'Typed' },
-            { value: 'voice', label: 'Voice (prototype)' },
+            { value: 'voice', label: 'Voice' },
           ]}
         />
       </div>
 
       {answerMode === 'voice' ? (
-        <VoiceWorkspace question={question} recorder={recorder} onSwitchToTyped={() => switchAnswerMode('typed')} />
+        <VoiceWorkspace
+          question={question}
+          recorder={recorder}
+          transcription={transcription}
+          onRetryTranscription={() => recorder.recordingBlob && runTranscription(recorder.recordingBlob)}
+          onUseAnswer={useTranscriptAsAnswer}
+        />
       ) : (
       <section className="rounded-[8px] border border-line bg-surface">
         <div className="border-b border-rule px-5 py-2.5 sm:px-6">

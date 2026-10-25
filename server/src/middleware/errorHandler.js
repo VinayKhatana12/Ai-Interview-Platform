@@ -4,9 +4,10 @@ export function notFound(req, res) {
   res.status(404).json({ error: { code: "NOT_FOUND", message: "Route not found." } });
 }
 
-// Last middleware in the chain. Known HttpErrors keep their shape; anything
-// else is logged server-side and returned as a generic 500 so internals
-// (stack traces, Prisma errors) never reach the client.
+// Last middleware in the chain. Known HttpErrors keep their shape; multer's
+// upload errors map into the envelope; anything else is logged server-side
+// and returned as a generic 500 so internals (stack traces, Prisma/provider
+// errors) never reach the client.
 export function errorHandler(err, req, res, next) {
   if (res.headersSent) return next(err);
 
@@ -17,6 +18,18 @@ export function errorHandler(err, req, res, next) {
         message: err.message,
         ...(err.details ? { details: err.details } : {}),
       },
+    });
+  }
+
+  // Bounded multipart upload failures (size/field limits, non-multipart body).
+  if (err?.name === "MulterError") {
+    if (err.code === "LIMIT_FILE_SIZE") {
+      return res.status(413).json({
+        error: { code: "AUDIO_TOO_LARGE", message: "The recording exceeds the 25 MB limit. Record a shorter answer." },
+      });
+    }
+    return res.status(400).json({
+      error: { code: "BAD_UPLOAD", message: "The upload was not a valid audio recording request." },
     });
   }
 

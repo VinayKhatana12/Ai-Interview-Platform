@@ -14,7 +14,9 @@ import {
   session,
   start,
   stats,
+  transcribe,
 } from "../controllers/interview.controller.js";
+import { audioUpload } from "../middleware/upload.js";
 
 const router = Router();
 
@@ -27,6 +29,7 @@ router.post("/:id/start", start);
 router.post("/:id/answers", validate(submitAnswerSchema), answer);
 router.post("/:id/complete", complete);
 router.post("/:id/evaluate", evaluate);
+router.post("/:id/transcribe", audioUpload.single("audio"), transcribe);
 router.get("/:id", detail);
 router.get("/:id/session", session);
 router.get("/:id/results", results);
