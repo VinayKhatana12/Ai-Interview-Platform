@@ -199,7 +199,7 @@ export default function Report() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
+      <div className="flex flex-wrap items-start justify-between gap-4 break-inside-avoid">
         <div>
           <h1 className="text-2xl font-medium text-ink">{interview.roleTitle}</h1>
           <p className="mt-1.5 flex flex-wrap items-center gap-2 text-sm text-muted">
@@ -208,17 +208,22 @@ export default function Report() {
             {completed && minutes != null && <span className="tnum">· Took {minutes} min</span>}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => window.print()}
-          className="inline-flex h-9 items-center gap-2 rounded-[6px] border border-control bg-surface px-4 text-sm text-ink hover:bg-raised print:hidden"
-        >
-          <Printer size={16} strokeWidth={2} aria-hidden="true" />
-          Print
-        </button>
+        <div className="print:hidden">
+          <button
+            type="button"
+            onClick={() => window.print()}
+            className="inline-flex h-9 items-center gap-2 rounded-[6px] border border-control bg-surface px-4 text-sm text-ink hover:bg-raised"
+          >
+            <Printer size={16} strokeWidth={2} aria-hidden="true" />
+            Print / Save as PDF
+          </button>
+          <p className="mt-1.5 max-w-[260px] text-xs text-muted">
+            Opens your browser's print dialog. Choose "Save as PDF" there to export this report.
+          </p>
+        </div>
       </div>
 
-      <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-[8px] border border-line bg-rule sm:grid-cols-4">
+      <dl className="break-inside-avoid grid grid-cols-2 gap-px overflow-hidden rounded-[8px] border border-line bg-rule sm:grid-cols-4">
         <div className="flex flex-col gap-1 bg-surface p-4">
           <dt className="text-xs text-muted">
             {completed ? 'Overall score' : 'Score so far'}

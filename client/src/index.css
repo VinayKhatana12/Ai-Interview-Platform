@@ -100,13 +100,25 @@ section[id] {
 }
 
 /* Print (report page): chrome and controls go, content stays. Collapsed
-   <details> sections are forced open so nothing is hidden on paper. */
+   <details> sections are forced open so nothing is hidden on paper.
+   Headings travel with their content; nothing clips; tints stay readable
+   in grayscale; no half-empty last page from full-height shells. */
 @media print {
   @page {
     margin: 14mm;
   }
+  * {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+  html,
   body {
     background: #ffffff !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+  .min-h-svh {
+    min-height: auto !important;
   }
   nav {
     display: none !important;
@@ -114,6 +126,18 @@ section[id] {
   main {
     max-width: none !important;
     padding: 0 !important;
+    overflow: visible !important;
+  }
+  h1,
+  h2,
+  h3,
+  summary,
+  dt {
+    break-after: avoid;
+    break-inside: avoid;
+  }
+  li {
+    break-inside: avoid;
   }
   details > *:not(summary) {
     display: block !important;
