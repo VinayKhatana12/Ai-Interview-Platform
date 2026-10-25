@@ -1,6 +1,5 @@
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { NavLink, Outlet } from 'react-router-dom'
 import { History, LayoutDashboard, Plus, UserRound } from 'lucide-react'
-import { useAuth } from '../auth/AuthContext.jsx'
 import { BrandMark } from './BrandMark.jsx'
 
 // Shell per the dealt sheet: an unlabelled icon rail (56px) on the page
@@ -12,44 +11,9 @@ const NAV = [
   { to: '/history', icon: History, label: 'History', short: 'History' },
 ]
 
-function RailItem({ to, icon: Icon, label, short, end, bottom = false }) {
-  return (
-    <NavLink
-      to={to}
-      end={end}
-      title={label}
-      aria-label={label}
-      className={({ isActive }) =>
-        `group relative flex h-10 w-14 items-center justify-center rounded-[6px] ${
-          isActive ? 'bg-ink/[0.06]' : 'hover:bg-ink/[0.04]'
-        }`
-      }
-    >
-      {({ isActive }) => (
-        <>
-          {isActive && (
-            <span
-              aria-hidden="true"
-              className={`absolute ${bottom ? 'bottom-1' : 'top-1'} left-1/2 h-[2px] w-5 -translate-x-1/2 rounded-full bg-ink`}
-            />
-          )}
-          <Icon size={17} strokeWidth={1.5} aria-hidden="true" className={isActive ? 'text-ink' : 'text-muted'} />
-          <span className="sr-only">{label}</span>
-        </>
-      )}
-    </NavLink>
-  )
-}
-
-export default function AppShell() {
-  const { user, logout } = useAuth()
-  const navigate = useNavigate()
-
-  async function handleLogout() {
-    await logout()
-    navigate('/login', { replace: true })
-  }
-
+// Accepts children so the authed home route can reuse the shell without a
+// nested route (falls back to the router Outlet).
+export default function AppShell({ children }) {
   return (
     <div className="min-h-screen bg-ground">
       {/* Desktop rail */}
@@ -70,7 +34,7 @@ export default function AppShell() {
 
       <div className="md:pl-14">
         <main className="mx-auto w-full max-w-[1204px] px-4 pb-24 pt-6 sm:px-6 md:pb-10">
-          <Outlet />
+          {children ?? <Outlet />}
         </main>
       </div>
 

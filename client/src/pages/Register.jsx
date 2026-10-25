@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { Field } from '../components/Field.jsx'
 import { FormError } from '../components/FormError.jsx'
@@ -8,9 +8,10 @@ import { Wordmark } from '../components/BrandMark.jsx'
 export default function Register() {
   const { register } = useAuth()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
 
   const [name, setName] = useState('')
-  const [email, setEmail] = useState('')
+  const [email, setEmail] = useState(searchParams.get('email') ?? '')
   const [password, setPassword] = useState('')
   const [fieldErrors, setFieldErrors] = useState({})
   const [apiError, setApiError] = useState('')

@@ -52,6 +52,53 @@ body {
   border-radius: 4px;
 }
 
+/* Landing motion: masked headline + reveal-on-scroll. Transform/opacity
+   only; reduced-motion keeps the content and drops the travel. */
+html {
+  scroll-behavior: smooth;
+}
+
+section[id] {
+  scroll-margin-top: 24px;
+}
+
+.mask-line {
+  display: block;
+  overflow: hidden;
+}
+.mask-line > span {
+  display: block;
+  transition: transform 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+  transform: translateY(110%);
+}
+.mask-run .mask-line > span {
+  transform: translateY(0);
+}
+
+.reveal {
+  opacity: 0;
+  transform: translateY(16px);
+  transition:
+    opacity 0.6s ease-out,
+    transform 0.6s ease-out;
+}
+.reveal.is-revealed {
+  opacity: 1;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .mask-line > span,
+  .reveal {
+    transform: none;
+    opacity: 1;
+    transition: none;
+  }
+}
+
 /* Print (report page): chrome and controls go, content stays. Collapsed
    <details> sections are forced open so nothing is hidden on paper. */
 @media print {

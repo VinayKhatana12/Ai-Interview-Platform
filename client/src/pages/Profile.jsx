@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { api } from '../api/client.js'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { Field } from '../components/Field.jsx'
@@ -7,9 +8,10 @@ import { EXPERIENCE_LABELS } from '../utils/format.js'
 
 // Profile: the account facts the server holds, plus the two fields the user
 // may edit (name, experience level). One Save per panel (app-screens §8.2),
-// with a quiet "Saved" stamp.
+// with a quiet "Saved" stamp. Sign out lives here, in its own section.
 export default function Profile() {
-  const { user, updateMe } = useAuth()
+  const { user, updateMe, logout } = useAuth()
+  const navigate = useNavigate()
   const [name, setName] = useState(user?.name ?? '')
   const [experienceLevel, setExperienceLevel] = useState(user?.experienceLevel ?? '')
   const [fieldErrors, setFieldErrors] = useState({})
@@ -119,6 +121,21 @@ export default function Profile() {
           )}
         </div>
       </form>
+
+      <section className="rounded-[8px] border border-line bg-surface p-5 sm:p-6">
+        <h2 className="text-base font-medium text-ink">Sign out</h2>
+        <p className="mt-2 text-sm text-muted">Ends the session on this device.</p>
+        <button
+          type="button"
+          onClick={async () => {
+            await logout()
+            navigate('/login', { replace: true })
+          }}
+          className="mt-4 h-10 rounded-[6px] border border-control bg-surface px-5 text-sm font-medium text-negative hover:bg-raised"
+        >
+          Sign out
+        </button>
+      </section>
     </div>
   )
 }
