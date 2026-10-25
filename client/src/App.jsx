@@ -6,6 +6,7 @@ import Register from './pages/Register.jsx'
 import Dashboard from './pages/Dashboard.jsx'
 import NewInterview from './pages/NewInterview.jsx'
 import InterviewSession from './pages/InterviewSession.jsx'
+import Report from './pages/Report.jsx'
 import History from './pages/History.jsx'
 import Profile from './pages/Profile.jsx'
 
@@ -38,6 +39,7 @@ export const router = createBrowserRouter([
       { path: '/', element: <Dashboard /> },
       { path: '/interviews/new', element: <NewInterview /> },
       { path: '/interviews/:id', element: <InterviewSession /> },
+      { path: '/interviews/:id/report', element: <Report /> },
       { path: '/history', element: <History /> },
       { path: '/profile', element: <Profile /> },
     ],

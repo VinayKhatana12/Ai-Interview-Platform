@@ -46,8 +46,35 @@ body {
 }
 
 /* Loading state per app-screens §11: flat grey bars at the real size of the
-   value they stand in for. No shimmer. */
+   value they stand in for. No shimmer, no layout shift. */
 .skeleton-bar {
   background: var(--color-raised);
   border-radius: 4px;
+}
+
+/* Print (report page): chrome and controls go, content stays. Collapsed
+   <details> sections are forced open so nothing is hidden on paper. */
+@media print {
+  @page {
+    margin: 14mm;
+  }
+  body {
+    background: #ffffff !important;
+  }
+  nav {
+    display: none !important;
+  }
+  main {
+    max-width: none !important;
+    padding: 0 !important;
+  }
+  details > *:not(summary) {
+    display: block !important;
+  }
+  details > summary {
+    list-style: none;
+  }
+  .break-inside-avoid {
+    break-inside: avoid;
+  }
 }

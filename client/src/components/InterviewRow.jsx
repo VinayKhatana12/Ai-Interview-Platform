@@ -13,7 +13,7 @@ export function InterviewRow({ interview }) {
       : interview.status === 'IN_PROGRESS'
         ? { label: 'Resume', to: `/interviews/${interview.id}` }
         : interview.status === 'COMPLETED'
-          ? { label: 'Results', to: `/interviews/${interview.id}` }
+          ? { label: 'Results', to: `/interviews/${interview.id}/report` }
           : null
 
   return (

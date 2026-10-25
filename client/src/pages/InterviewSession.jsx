@@ -9,8 +9,8 @@ import {
 } from '../api/interviews.js'
 import { PageSkeleton } from '../components/Skeletons.jsx'
 import { BlockError } from '../components/States.jsx'
+import { StatusPill } from '../components/StatusPill.jsx'
 import { SegmentedControl } from '../components/SegmentedControl.jsx'
-import ResultsView from '../components/ResultsView.jsx'
 import VoiceWorkspace from '../components/voice/VoiceWorkspace.jsx'
 import { useRecorder } from '../hooks/useRecorder.js'
 
@@ -307,9 +307,44 @@ export default function InterviewSession() {
 
   const { interview, progress } = session
 
-  // ---- Completed: results with AI feedback ----
+  // ---- Completed: point at the canonical report ----
   if (session.phase === 'completed') {
-    return <ResultsView interviewId={id} />
+    const minutes =
+      interview.startedAt && interview.completedAt
+        ? Math.max(1, Math.round((Date.parse(interview.completedAt) - Date.parse(interview.startedAt)) / 60000))
+        : null
+    return (
+      <div className="mx-auto max-w-[720px] space-y-6">
+        <div>
+          <h1 className="text-2xl font-medium text-ink">{interview.roleTitle}</h1>
+          <p className="mt-1.5 flex items-center gap-2 text-sm text-muted">
+            <StatusPill status="COMPLETED" />
+            {minutes != null && <span className="tnum">Took {minutes} min</span>}
+          </p>
+        </div>
+        <section className="rounded-[8px] border border-line bg-surface p-5 sm:p-6">
+          <h2 className="text-base font-medium text-ink">Interview finished</h2>
+          <p className="mt-2 text-sm text-muted">
+            All {progress.total} answers are locked in. Your full report — scores, per-question
+            feedback and practice suggestions — is ready.
+          </p>
+          <div className="mt-5 flex flex-wrap gap-3">
+            <Link
+              to={`/interviews/${id}/report`}
+              className="h-9 rounded-[6px] bg-primary px-4 text-sm font-medium leading-9 text-white hover:opacity-90"
+            >
+              View full report
+            </Link>
+            <Link
+              to="/"
+              className="h-9 rounded-[6px] border border-control bg-surface px-4 text-sm leading-9 text-ink hover:bg-raised"
+            >
+              Back to dashboard
+            </Link>
+          </div>
+        </section>
+      </div>
+    )
   }
 
   // ---- Ready (PENDING): recap + start ----

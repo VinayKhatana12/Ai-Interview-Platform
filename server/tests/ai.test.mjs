@@ -315,6 +315,30 @@ describe("POST /api/interviews/:id/evaluate + results", () => {
     expect(asB.status).toBe(404);
   });
 
+  it("returns a partial, honest report for an in-progress interview", async () => {
+    mockQuestionsThen();
+    const created = await request(app).post("/api/interviews").set("Cookie", cookieA).send(CONFIG);
+    const id = created.body.interview.id;
+    await request(app).post(`/api/interviews/${id}/start`).set("Cookie", cookieA);
+
+    const res = await request(app).get(`/api/interviews/${id}/results`).set("Cookie", cookieA);
+    expect(res.status).toBe(200);
+    expect(res.body.interview.status).toBe("IN_PROGRESS");
+    expect(res.body.totalAnswered).toBe(0);
+    expect(res.body.evaluatedCount).toBe(0);
+    expect(res.body.avgScore).toBeNull();
+    expect(res.body.practiceSuggestions).toBeNull();
+    expect(res.body.items[0].answer).toBeNull();
+    expect(res.body.items[0].evaluation).toBeNull();
+  });
+
+  it("returns 404 for a report on an interview id that does not exist", async () => {
+    const res = await request(app)
+      .get("/api/interviews/00000000-0000-4000-8000-000000000000/results")
+      .set("Cookie", cookieA);
+    expect(res.status).toBe(404);
+  });
+
   it("suggests practice topics from weak scores, and none when strong", async () => {
     mockQuestionsThen({ ...aiEvaluation, score: 45, correctness: "INCORRECT" });
     const id = await createAndComplete();
