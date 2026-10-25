@@ -24,7 +24,7 @@ export async function aiGenerateQuestions(config) {
     system,
     responseSchema: geminiQuestionSchema(),
     // ~150 tokens per question plus envelope; enough for 10 questions.
-    maxOutputTokens: Math.min(4096, 512 + config.questionCount * 256),
+    maxOutputTokens: Math.min(8192, 512 + config.questionCount * 320),
   });
 
   const parsed = questionSetSchema.safeParse(raw);
@@ -42,9 +42,9 @@ export async function aiGenerateQuestions(config) {
       `Expected ${config.questionCount} questions, received ${questions.length}.`,
     );
   }
-  const allowed = new Set(config.topics);
+  const allowed = new Set(config.topics.map((t) => t.toLowerCase()));
   for (const q of questions) {
-    if (!allowed.has(q.topic)) {
+    if (!allowed.has(q.topic.toLowerCase())) {
       throw new AiError("AI_INVALID_SHAPE", `The AI returned a question outside the chosen topics (${q.topic}).`);
     }
   }

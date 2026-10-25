@@ -79,6 +79,8 @@ async function buildSessionView(userId, interviewId) {
     interview: {
       id: interview.id,
       roleTitle: interview.roleTitle,
+      interviewType: interview.interviewType,
+      mode: interview.mode,
       topics: interview.topics,
       difficulty: interview.difficulty,
       status: interview.status,
@@ -113,6 +115,7 @@ export async function startInterview(userId, interviewId) {
         roleTitle: interview.roleTitle,
         experienceLevel: interview.experienceLevel,
         difficulty: interview.difficulty,
+        interviewType: interview.interviewType,
         topics: interview.topics,
         questionCount: interview.questionCount,
       });

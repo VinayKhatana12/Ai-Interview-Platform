@@ -25,17 +25,25 @@ export const createInterviewSchema = z.strictObject({
       .max(80, "Role title must be at most 80 characters"),
     experienceLevel: z.enum(EXPERIENCE_LEVELS, "Choose an experience level"),
     difficulty: z.enum(["EASY", "MEDIUM", "HARD"], "Choose a difficulty"),
+    // Technical, behavioral, or a mix — drives the generator.
+    interviewType: z
+      .enum(["TECHNICAL", "BEHAVIORAL", "MIXED"], "Choose an interview type")
+      .default("TECHNICAL"),
+    // Catalog topics plus the candidate's own custom topics, normalized:
+    // trimmed, 2-40 chars each, deduplicated case-insensitively, max five.
     topics: z
-      .array(z.enum(TOPICS))
+      .array(z.string().trim().min(2, "Topics need at least 2 characters").max(40, "Topics are limited to 40 characters"))
       .min(1, "Pick at least one topic")
-      .max(5, "Pick at most five topics"),
-    // Text interviews only for now; other modes stay explicitly out of range.
-    mode: z.literal("TEXT", "Text is the only available mode"),
+      .max(5, "Pick at most five topics")
+      .transform((list) => [...new Map(list.map((t) => [t.toLowerCase(), t])).values()]),
+    // Delivery mode. VOICE opens the session in the voice workspace; answers
+    // are transcribed and reviewed before submission.
+    mode: z.enum(["TEXT", "VOICE"], "Choose a mode").default("TEXT"),
     questionCount: z.coerce
       .number()
       .int("Question count must be a whole number")
       .min(3, "At least 3 questions")
-      .max(10, "At most 10 questions"),
+      .max(15, "At most 15 questions"),
     durationMinutes: z.coerce
       .number()
       .int("Duration must be a whole number of minutes")

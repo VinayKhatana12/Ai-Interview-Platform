@@ -75,12 +75,14 @@ describe("POST /api/interviews", () => {
     ["short role title", { roleTitle: "X" }],
     ["unknown experience level", { experienceLevel: "10-20" }],
     ["unknown difficulty", { difficulty: "EXTREME" }],
+    ["unknown interview type", { interviewType: "GROUP_DISCUSSION" }],
     ["no topics", { topics: [] }],
-    ["unknown topic", { topics: ["Quantum Computing"] }],
+    ["topic that is too short", { topics: ["C"] }],
+    ["topic that is too long", { topics: ["x".repeat(41)] }],
     ["too many topics", { topics: ["React", "JavaScript", "Node.js", "DBMS", "OOP", "Networks"] }],
-    ["voice mode not available", { mode: "VOICE" }],
+    ["unsupported mode", { mode: "VIDEO" }],
     ["too few questions", { questionCount: 2 }],
-    ["too many questions", { questionCount: 11 }],
+    ["too many questions", { questionCount: 16 }],
     ["too short", { durationMinutes: 5 }],
     ["too long", { durationMinutes: 95 }],
     ["not a multiple of five", { durationMinutes: 33 }],
@@ -96,6 +98,47 @@ describe("POST /api/interviews", () => {
       expect(Object.keys(res.body.error.details).length).toBeGreaterThan(0);
     });
   }
+
+  it("accepts Phase 4.1 configuration: type, voice, custom topics, 15 questions", async () => {
+    const res = await request(app)
+      .post("/api/interviews")
+      .set("Cookie", cookieA)
+      .send({
+        ...VALID_CONFIG,
+        roleTitle: "Java Developer",
+        interviewType: "MIXED",
+        mode: "VOICE",
+        topics: ["React", "Data Structures & Algorithms", "system design", "System Design", "Cloud Basics"],
+        questionCount: 15,
+        durationMinutes: 45,
+      });
+    expect(res.status).toBe(201);
+    expect(res.body.interview).toMatchObject({
+      interviewType: "MIXED",
+      mode: "VOICE",
+      questionCount: 15,
+      durationMinutes: 45,
+    });
+    // Case-insensitive dedupe collapsed "system design"/"System Design" (last casing wins); custom topics stored.
+    expect(res.body.interview.topics).toHaveLength(4);
+    expect(res.body.interview.topics).toContain("System Design");
+    expect(res.body.interview.topics).toContain("Cloud Basics");
+    // A 15-question set generates end to end (fixture path in tests).
+    const start = await request(app).post(`/api/interviews/${res.body.interview.id}/start`).set("Cookie", cookieA);
+    expect(start.status).toBe(201);
+    expect(start.body.currentQuestion.questionType).toBe("technical"); // MIXED alternates, odd index = technical
+  });
+
+  it("stores BEHAVIORAL type and generates behavioral fixture questions", async () => {
+    const res = await request(app)
+      .post("/api/interviews")
+      .set("Cookie", cookieA)
+      .send({ ...VALID_CONFIG, roleTitle: "Backend Developer", interviewType: "BEHAVIORAL" });
+    expect(res.body.interview.interviewType).toBe("BEHAVIORAL");
+    const start = await request(app).post(`/api/interviews/${res.body.interview.id}/start`).set("Cookie", cookieA);
+    expect(start.status).toBe(201);
+    expect(start.body.currentQuestion.questionType).toBe("behavioral");
+  });
 
   it("requires authentication", async () => {
     const res = await request(app).post("/api/interviews").send(VALID_CONFIG);

@@ -6,8 +6,10 @@ import { HttpError } from "../utils/HttpError.js";
 const INTERVIEW_SELECT = {
   id: true,
   roleTitle: true,
+  interviewType: true,
   experienceLevel: true,
   difficulty: true,
+  interviewType: true,
   mode: true,
   status: true,
   topics: true,

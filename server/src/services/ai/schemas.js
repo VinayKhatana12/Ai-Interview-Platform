@@ -10,7 +10,7 @@ export const questionSetSchema = z.object({
         text: z.string().trim().min(10).max(1000),
         topic: z.string().trim().min(2).max(60),
         difficulty: z.enum(["EASY", "MEDIUM", "HARD"]),
-        questionType: z.string().trim().min(3).max(40),
+        questionType: z.enum(["technical", "behavioral"]),
       }),
     )
     .min(1)
@@ -42,7 +42,7 @@ export function geminiQuestionSchema() {
             text: { type: "string" },
             topic: { type: "string" },
             difficulty: { type: "string", enum: ["EASY", "MEDIUM", "HARD"] },
-            questionType: { type: "string" },
+            questionType: { type: "string", enum: ["technical", "behavioral"] },
           },
           required: ["text", "topic", "difficulty", "questionType"],
         },

@@ -29,6 +29,10 @@ function difficultyLabel(d) {
   return d[0] + d.slice(1).toLowerCase()
 }
 
+function typeLabel(t) {
+  return t[0] + t.slice(1).toLowerCase()
+}
+
 function draftKey(interviewId) {
   return `il:draft:${interviewId}`
 }
@@ -85,11 +89,13 @@ export default function InterviewSession() {
   const [savedNote, setSavedNote] = useState('')
   const [starting, setStarting] = useState(false)
   const [completing, setCompleting] = useState(false)
-  // Answer mode is an interaction preference of the session screen; the
-  // interview's stored mode is unchanged. Voice is a labeled prototype.
+  // Answer mode: a VOICE interview opens in the voice workspace (the stored
+  // mode from creation); a TEXT interview opens typed. The candidate's
+  // explicit toggle for this interview wins over the default either way.
   const [answerMode, setAnswerMode] = useState(
     () => localStorage.getItem(`il:voice-pref:${id}`) === 'voice' ? 'voice' : 'typed',
   )
+  const storedModeApplied = useRef(false)
   const recorder = useRecorder()
   const [transcription, setTranscription] = useState({ status: 'idle', transcript: '', error: '' })
   const transcriptionBusyRef = useRef(false)
@@ -307,6 +313,16 @@ export default function InterviewSession() {
 
   const { interview, progress } = session
 
+  // A VOICE interview defaults to the voice workspace once, on first load.
+  // A stored toggle for this interview (the candidate's explicit choice)
+  // wins over the stored mode.
+  if (!storedModeApplied.current) {
+    storedModeApplied.current = true
+    if (interview.mode === 'VOICE' && !localStorage.getItem(`il:voice-pref:${id}`)) {
+      setAnswerMode('voice')
+    }
+  }
+
   // ---- Completed: point at the canonical report ----
   if (session.phase === 'completed') {
     const minutes =
@@ -371,6 +387,10 @@ export default function InterviewSession() {
               <dd className="text-right text-sm text-ink">{interview.topics.join(' · ')}</dd>
             </div>
             <div className="flex items-baseline justify-between border-b border-rule pb-3">
+              <dt className="text-sm text-muted">Type</dt>
+              <dd className="text-sm text-ink">{typeLabel(interview.interviewType)}</dd>
+            </div>
+            <div className="flex items-baseline justify-between border-b border-rule pb-3">
               <dt className="text-sm text-muted">Questions</dt>
               <dd className="text-sm text-ink tnum">{interview.questionCount}</dd>
             </div>
@@ -380,7 +400,7 @@ export default function InterviewSession() {
             </div>
             <div className="flex items-baseline justify-between border-b border-rule pb-3">
               <dt className="text-sm text-muted">Mode</dt>
-              <dd className="text-sm text-ink">Text</dd>
+              <dd className="text-sm text-ink">{interview.mode === 'VOICE' ? 'Voice' : 'Text'}</dd>
             </div>
           </dl>
           <p className="mt-4 text-xs text-muted">

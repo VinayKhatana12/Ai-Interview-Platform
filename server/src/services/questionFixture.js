@@ -59,18 +59,34 @@ const POOL = {
   ],
 };
 
+// Behavioral prompts for BEHAVIORAL/MIXED interviews (development fixture).
+const BEHAVIORAL_POOL = [
+  "Tell me about a time you disagreed with a teammate. How did you handle it, and what happened?",
+  "Describe a project that slipped its deadline. What did you change afterwards?",
+  "Walk me through a piece of feedback that was hard to hear. What did you do with it?",
+];
+
 export function fixtureQuestions(config) {
   const questions = [];
   let topicIndex = 0;
   let poolOffset = 0;
+  const typeOf = (i) =>
+    config.interviewType === "BEHAVIORAL"
+      ? "behavioral"
+      : config.interviewType === "MIXED"
+        ? i % 2 === 0
+          ? "technical"
+          : "behavioral"
+        : "technical";
   for (let i = 0; i < config.questionCount; i++) {
+    const questionType = typeOf(i);
     const topic = config.topics[topicIndex % config.topics.length];
-    const pool = POOL[topic] ?? POOL.JavaScript;
+    const pool = questionType === "behavioral" ? BEHAVIORAL_POOL : POOL[topic] ?? POOL.JavaScript;
     questions.push({
       text: pool[(poolOffset + i) % pool.length],
       topic,
       difficulty: config.difficulty,
-      questionType: "technical",
+      questionType,
     });
     // Rotate topics; offset drifts so longer sets don't repeat the same picks.
     topicIndex++;

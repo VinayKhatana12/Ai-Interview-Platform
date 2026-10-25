@@ -30,12 +30,23 @@ enum Difficulty {
   @@map("difficulty")
 }
 
-// Interview delivery mode. Only TEXT exists in v1; adding a mode later is a
-// one-line enum migration.
+// Interview delivery mode. The candidate picks this at creation; the
+// session opens in the chosen mode (voice answers are transcribed).
 enum InterviewMode {
   TEXT
+  VOICE
 
   @@map("interview_mode")
+}
+
+// What the interview drills: technical questions, behavioral (STAR-style),
+// or a mix. The generator and fixture read this.
+enum InterviewType {
+  TECHNICAL
+  BEHAVIORAL
+  MIXED
+
+  @@map("interview_type")
 }
 
 // Lifecycle of an interview. PENDING -> IN_PROGRESS -> COMPLETED.
@@ -69,6 +80,7 @@ model Interview {
   roleTitle       String          @map("role_title")
   experienceLevel String          @map("experience_level")
   difficulty      Difficulty
+  interviewType   InterviewType   @default(TECHNICAL) @map("interview_type")
   mode            InterviewMode   @default(TEXT)
   status          InterviewStatus @default(PENDING)
   durationMinutes Int             @map("duration_minutes")

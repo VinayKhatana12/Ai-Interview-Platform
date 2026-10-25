@@ -13,6 +13,7 @@ export function Field({
   autoFocus = false,
   disabled = false,
   children,
+  list,
 }) {
   const describedBy = error ? `${id}-error` : hint ? `${id}-hint` : undefined
   const controlClass = `h-10 rounded-[6px] border bg-surface px-3 text-base text-ink disabled:opacity-60 ${
@@ -44,6 +45,7 @@ export function Field({
           autoComplete={autoComplete}
           autoFocus={autoFocus}
           disabled={disabled}
+          list={list}
           aria-invalid={error ? true : undefined}
           aria-describedby={describedBy}
           className={`${controlClass} placeholder:text-muted/70`}

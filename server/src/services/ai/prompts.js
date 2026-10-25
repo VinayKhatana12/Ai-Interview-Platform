@@ -38,12 +38,17 @@ export function buildQuestionPrompt(config) {
   return {
     system: SHARED_SYSTEM,
     user: [
-      `Design a technical interview for the role "${config.roleTitle}".`,
+      `Design a ${config.interviewType === "BEHAVIORAL" ? "behavioral" : config.interviewType === "MIXED" ? "mixed technical and behavioral" : "technical"} interview for the role "${config.roleTitle}".`,
       `The candidate is ${EXPERIENCE_GUIDE[config.experienceLevel] ?? "an engineer"}.`,
       `Target difficulty: ${config.difficulty} (${DIFFICULTY_GUIDE[config.difficulty] ?? DIFFICULTY_GUIDE.MEDIUM}).`,
       `Ask exactly ${config.questionCount} questions, each about one of these topics: ${config.topics.join(", ")}.`,
       "Cover the topics as evenly as possible. Questions must be open-ended (no multiple choice), self-contained, and take 2-5 minutes to answer in text.",
-      `Respond as JSON: {"questions":[{"text": string (<=${MAX_QUESTION_CHARS} chars),"topic": one of the given topics,"difficulty": "${config.difficulty}","questionType": "technical"}]}`,
+      config.interviewType === "BEHAVIORAL"
+        ? "Ask behavioral questions only: situations the candidate has faced, what they did, and what resulted. Focus on teamwork, ownership, conflict, failure and learning."
+        : config.interviewType === "MIXED"
+          ? "Mix technical and behavioral questions roughly half and half. Behavioral items ask about situations the candidate has faced and what they did."
+          : "Ask technical questions only.",
+      `Respond as JSON: {"questions":[{"text": string (<=${MAX_QUESTION_CHARS} chars),"topic": one of the given topics,"difficulty": "${config.difficulty}","questionType": "technical" or "behavioral"}]}`,
     ].join("\n"),
   };
 }
