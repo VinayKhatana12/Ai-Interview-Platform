@@ -34,12 +34,17 @@ const CONFIG = {
   durationMinutes: 30,
 };
 
+const QUESTION_TEXTS = [
+  'Explain the component lifecycle and when re-renders happen.',
+  'Describe how asynchronous work and failures are handled.',
+  'Compare this approach with an alternative and when you would choose each.',
+];
 const aiQuestions = (n) => ({
   questions: Array.from({ length: n }, (_, i) => ({
-    text: `AI question ${i + 1}: explain concept ${i + 1} with an example.`,
-    topic: i % 2 === 0 ? "React" : "Node.js",
-    difficulty: "MEDIUM",
-    questionType: "technical",
+    text: QUESTION_TEXTS[i % QUESTION_TEXTS.length],
+    topic: i % 2 === 0 ? 'React' : 'Node.js',
+    difficulty: 'MEDIUM',
+    questionType: 'technical',
   })),
 });
 
@@ -137,13 +142,13 @@ describe("question generation via mocked provider", () => {
       .set("Cookie", cookieA);
 
     expect(start.status).toBe(201);
-    expect(start.body.currentQuestion.text).toContain("AI question 1");
+    expect(start.body.currentQuestion.text).toContain("component lifecycle");
     const rows = await prisma.question.findMany({
       where: { interviewId: created.body.interview.id },
       orderBy: { questionOrder: "asc" },
     });
     expect(rows.map((q) => q.questionOrder)).toEqual([1, 2, 3]);
-    expect(rows[0].text).toContain("AI question 1");
+    expect(rows[0].text).toContain("component lifecycle");
   });
 
   it("rejects a wrong question count and stays recoverable", async () => {
@@ -213,6 +218,103 @@ describe("question generation via mocked provider", () => {
     expect(start.status).toBe(201);
     expect(vi.mocked(generateJson)).not.toHaveBeenCalled();
     expect(start.body.currentQuestion.text).toContain("virtual DOM"); // fixture content (React is the first topic)
+  });
+});
+
+describe("Phase 4.2 — generation quality and persistence", () => {
+  it("sends the full saved configuration to the provider", async () => {
+    vi.mocked(generateJson).mockImplementationOnce(async () => aiQuestions(3));
+    const created = await request(app)
+      .post("/api/interviews")
+      .set("Cookie", cookieA)
+      .send({ ...CONFIG, roleTitle: "Java Developer", difficulty: "HARD", interviewType: "MIXED", durationMinutes: 45 });
+    const start = await request(app)
+      .post(`/api/interviews/${created.body.interview.id}/start`)
+      .set("Cookie", cookieA);
+    expect(start.status).toBe(201);
+
+    const arg = vi.mocked(generateJson).mock.calls[0][0];
+    expect(arg.prompt).toContain("Java Developer");
+    expect(arg.prompt).toContain("HARD");
+    expect(arg.prompt).toContain("mixed technical and behavioral");
+    expect(arg.prompt).toContain("45 minutes");
+    expect(arg.prompt).toContain("React");
+    expect(arg.prompt).toContain("exactly 3 questions");
+  });
+
+  it("rejects a set with the same question twice", async () => {
+    vi.mocked(generateJson).mockImplementationOnce(async () => ({
+      questions: [
+        { text: "Explain the React component lifecycle.", topic: "React", difficulty: "MEDIUM", questionType: "technical" },
+        { text: "Explain the React component lifecycle.", topic: "Node.js", difficulty: "MEDIUM", questionType: "technical" },
+        { text: "Describe a project that slipped its deadline. What did you change afterwards?", topic: "React", difficulty: "MEDIUM", questionType: "behavioral" },
+      ],
+    }));
+    const created = await request(app).post("/api/interviews").set("Cookie", cookieA).send(CONFIG);
+    const start = await request(app)
+      .post(`/api/interviews/${created.body.interview.id}/start`)
+      .set("Cookie", cookieA);
+    expect(start.status).toBe(503);
+    expect(start.body.error.code).toBe("GENERATION_FAILED");
+    expect(await prisma.question.count({ where: { interviewId: created.body.interview.id } })).toBe(0);
+  });
+
+  it("rejects a set with near-duplicate questions", async () => {
+    vi.mocked(generateJson).mockImplementationOnce(async () => ({
+      questions: [
+        { text: "Explain how JavaScript closures capture variables from their defining scope.", topic: "React", difficulty: "MEDIUM", questionType: "technical" },
+        { text: "Explain how JavaScript closures capture variables from the surrounding lexical scope.", topic: "Node.js", difficulty: "MEDIUM", questionType: "technical" },
+        { text: "Describe a time you had to learn a new tool quickly. What did you do?", topic: "React", difficulty: "MEDIUM", questionType: "behavioral" },
+      ],
+    }));
+    const created = await request(app).post("/api/interviews").set("Cookie", cookieA).send(CONFIG);
+    const start = await request(app)
+      .post(`/api/interviews/${created.body.interview.id}/start`)
+      .set("Cookie", cookieA);
+    expect(start.status).toBe(503);
+    expect(await prisma.question.count({ where: { interviewId: created.body.interview.id } })).toBe(0);
+  });
+
+  it("persists a mixed set in stable order with the declared types", async () => {
+    vi.mocked(generateJson).mockImplementationOnce(async () => ({
+      questions: [
+        { text: "Explain the virtual DOM and why React uses it.", topic: "React", difficulty: "MEDIUM", questionType: "technical" },
+        { text: "Tell me about a time a code review disagreement changed your approach.", topic: "React", difficulty: "MEDIUM", questionType: "behavioral" },
+        { text: "Compare REST and GraphQL for a public API.", topic: "Node.js", difficulty: "MEDIUM", questionType: "technical" },
+      ],
+    }));
+    const created = await request(app)
+      .post("/api/interviews")
+      .set("Cookie", cookieA)
+      .send({ ...CONFIG, interviewType: "MIXED" });
+    const start = await request(app)
+      .post(`/api/interviews/${created.body.interview.id}/start`)
+      .set("Cookie", cookieA);
+    expect(start.status).toBe(201);
+
+    const rows = await prisma.question.findMany({
+      where: { interviewId: created.body.interview.id },
+      orderBy: { questionOrder: "asc" },
+    });
+    expect(rows.map((q) => q.questionOrder)).toEqual([1, 2, 3]);
+    expect(rows.map((q) => q.questionType)).toEqual(["technical", "behavioral", "technical"]);
+    expect(rows[0].text).toContain("virtual DOM");
+    expect(rows[2].text).toContain("GraphQL");
+
+    // The session's next-question logic reads the persisted set, never regenerates.
+    const before = vi.mocked(generateJson).mock.calls.length;
+    const session = await request(app)
+      .get(`/api/interviews/${created.body.interview.id}/session`)
+      .set("Cookie", cookieA);
+    expect(session.body.currentQuestion.id).toBe(rows[0].id);
+    expect(vi.mocked(generateJson).mock.calls.length).toBe(before);
+
+    // Restarting the start call cannot duplicate or overwrite the set.
+    const again = await request(app)
+      .post(`/api/interviews/${created.body.interview.id}/start`)
+      .set("Cookie", cookieA);
+    expect(again.status).toBe(409);
+    expect(await prisma.question.count({ where: { interviewId: created.body.interview.id } })).toBe(3);
   });
 });
 

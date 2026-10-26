@@ -33,12 +33,11 @@ const CONFIG = {
 };
 
 const AI_QUESTIONS = {
-  questions: Array.from({ length: 3 }, (_, i) => ({
-    text: `Analytics question ${i + 1}.`,
-    topic: i === 0 ? "OOP" : "React",
-    difficulty: "MEDIUM",
-    questionType: "technical",
-  })),
+  questions: [
+    { text: "Explain how encapsulation protects object state.", topic: "OOP", difficulty: "MEDIUM", questionType: "technical" },
+    { text: "Describe the rendering model and when it re-renders.", topic: "React", difficulty: "MEDIUM", questionType: "technical" },
+    { text: "Compare two ways of sharing logic across components.", topic: "React", difficulty: "MEDIUM", questionType: "technical" },
+  ],
 };
 
 const EVAL = (score, correctness = "PARTIALLY_CORRECT") => ({

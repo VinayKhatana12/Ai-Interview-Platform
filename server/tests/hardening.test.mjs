@@ -32,12 +32,11 @@ const CONFIG = {
 };
 
 const AI_QUESTIONS = {
-  questions: Array.from({ length: 3 }, (_, i) => ({
-    text: `Hardening question ${i + 1} about React concepts.`,
-    topic: "React",
-    difficulty: "EASY",
-    questionType: "technical",
-  })),
+  questions: [
+    { text: 'Explain how the framework handles state updates.', topic: 'React', difficulty: 'EASY', questionType: 'technical' },
+    { text: 'Describe an approach to error boundaries and recovery.', topic: 'React', difficulty: 'EASY', questionType: 'technical' },
+    { text: 'Compare two ways of structuring shared logic between components.', topic: 'React', difficulty: 'EASY', questionType: 'technical' },
+  ],
 };
 
 const AI_EVAL = {

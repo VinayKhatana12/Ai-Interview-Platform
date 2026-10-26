@@ -11,7 +11,7 @@
 // creating a second row.
 import { prisma } from "../db/prisma.js";
 import { HttpError } from "../utils/HttpError.js";
-import { generateQuestions } from "./questionGenerator.js";
+import { generateQuestions, isAiConfigured } from "./questionGenerator.js";
 import { AiError } from "./ai/provider.js";
 
 // Extra seconds accepted after the deadline so slow networks or modest clock
@@ -90,6 +90,8 @@ async function buildSessionView(userId, interviewId) {
       completedAt: interview.completedAt,
     },
     phase,
+    // Honest labeling: which generator produced the question set.
+    questionSource: isAiConfigured() ? "ai" : "fixture",
     progress: { answered, total },
     currentQuestion,
     timeExpired,
@@ -98,9 +100,13 @@ async function buildSessionView(userId, interviewId) {
   };
 }
 
-// POST /:id/start — PENDING -> IN_PROGRESS. Creates the question set first
-// (createMany), then flips status; if the process died between the two, a
-// retried start reuses the existing set instead of duplicating.
+// POST /:id/start — PENDING -> IN_PROGRESS. Generates the question set from
+// the persisted configuration, then saves set + status in one transaction.
+// REGENERATION POLICY: a set is generated exactly once per interview, at
+// start. There is no regenerate endpoint — an existing set is immutable
+// (answers and progress may already hang off it). A failed generation saves
+// nothing, so the only retry is "start again" on the still-PENDING
+// interview, which lands here and generates fresh.
 export async function startInterview(userId, interviewId) {
   const interview = await getOwnedInterview(userId, interviewId);
   if (interview.status !== "PENDING") {
@@ -118,6 +124,7 @@ export async function startInterview(userId, interviewId) {
         interviewType: interview.interviewType,
         topics: interview.topics,
         questionCount: interview.questionCount,
+        durationMinutes: interview.durationMinutes,
       });
     } catch (err) {
       // Provider failure is recoverable: nothing was persisted, the
@@ -136,23 +143,33 @@ export async function startInterview(userId, interviewId) {
       // A provider bug must never start an interview it cannot fill.
       throw new HttpError(503, "GENERATION_FAILED", "Could not build the question set. Try again.");
     }
-    await prisma.question.createMany({
-      data: questions.map((q, i) => ({
-        interviewId,
-        text: q.text,
-        topic: q.topic,
-        difficulty: q.difficulty,
-        questionOrder: i + 1,
-        questionType: q.questionType,
-      })),
+    // The slow AI call stays OUTSIDE the transaction; the two writes below
+    // land atomically, so a crash can never leave a saved set on a
+    // still-PENDING interview, or a started interview with no set.
+    await prisma.$transaction([
+      prisma.question.createMany({
+        data: questions.map((q, i) => ({
+          interviewId,
+          text: q.text,
+          topic: q.topic,
+          difficulty: q.difficulty,
+          questionOrder: i + 1,
+          questionType: q.questionType,
+        })),
+      }),
+      prisma.interview.update({
+        where: { id: interviewId },
+        data: { status: "IN_PROGRESS", startedAt: interview.startedAt ?? new Date() },
+      }),
+    ]);
+  } else {
+    // Questions already exist (a retried start after a saved set): only the
+    // transition persists; the saved set is never touched.
+    await prisma.interview.update({
+      where: { id: interviewId },
+      data: { status: "IN_PROGRESS", startedAt: interview.startedAt ?? new Date() },
     });
   }
-
-  // Persist the transition before responding.
-  await prisma.interview.update({
-    where: { id: interviewId },
-    data: { status: "IN_PROGRESS", startedAt: interview.startedAt ?? new Date() },
-  });
 
   return buildSessionView(userId, interviewId);
 }

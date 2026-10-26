@@ -35,6 +35,11 @@ const EXPERIENCE_GUIDE = {
 };
 
 export function buildQuestionPrompt(config) {
+  // Pacing: the configured duration spreads across the question count, so
+  // the model sizes each question for the time the candidate actually has.
+  const minutesPerQuestion = config.durationMinutes
+    ? Math.max(2, Math.round(config.durationMinutes / config.questionCount))
+    : null;
   return {
     system: SHARED_SYSTEM,
     user: [
@@ -42,12 +47,18 @@ export function buildQuestionPrompt(config) {
       `The candidate is ${EXPERIENCE_GUIDE[config.experienceLevel] ?? "an engineer"}.`,
       `Target difficulty: ${config.difficulty} (${DIFFICULTY_GUIDE[config.difficulty] ?? DIFFICULTY_GUIDE.MEDIUM}).`,
       `Ask exactly ${config.questionCount} questions, each about one of these topics: ${config.topics.join(", ")}.`,
-      "Cover the topics as evenly as possible. Questions must be open-ended (no multiple choice), self-contained, and take 2-5 minutes to answer in text.",
+      minutesPerQuestion
+        ? `The interview runs for ${config.durationMinutes} minutes in total, so keep each question answerable in about ${minutesPerQuestion} minutes of talking or writing.`
+        : "Keep each question answerable in 2-5 minutes.",
+      "Cover the topics as evenly as possible. Questions must be open-ended (no multiple choice), self-contained, and take no unstated information for granted.",
+      "Do not repeat or near-repeat a question already in the set; each question must explore a distinct idea.",
+      "The questions are practice material: do not claim or imply they match any specific company's actual interview questions.",
+      "Question text is shown to the candidate: never include evaluation rubrics, scoring instructions or meta-commentary in it.",
       config.interviewType === "BEHAVIORAL"
-        ? "Ask behavioral questions only: situations the candidate has faced, what they did, and what resulted. Focus on teamwork, ownership, conflict, failure and learning."
+        ? "Ask behavioral questions only: realistic workplace situations the candidate has faced, what they did, and what resulted. Focus on teamwork, ownership, conflict, failure and learning."
         : config.interviewType === "MIXED"
-          ? "Mix technical and behavioral questions roughly half and half. Behavioral items ask about situations the candidate has faced and what they did."
-          : "Ask technical questions only.",
+          ? "Mix technical and behavioral questions roughly half and half. Behavioral items ask about realistic workplace situations the candidate has faced and what they did."
+          : "Vary the questions across conceptual understanding, practical implementation, problem-solving and realistic on-the-job scenarios, as fits this role and these topics.",
       `Respond as JSON: {"questions":[{"text": string (<=${MAX_QUESTION_CHARS} chars),"topic": one of the given topics,"difficulty": "${config.difficulty}","questionType": "technical" or "behavioral"}]}`,
     ].join("\n"),
   };

@@ -48,6 +48,34 @@ export async function aiGenerateQuestions(config) {
       throw new AiError("AI_INVALID_SHAPE", `The AI returned a question outside the chosen topics (${q.topic}).`);
     }
   }
+
+  // Near-duplicate guard: a set that asks one idea twice is a bad set, so
+  // the whole generation is rejected and the start can be retried. Word-set
+  // Jaccard over the normalized text catches reworded repeats; containment
+  // catches a short variant of another question.
+  const normalized = questions.map((q) =>
+    q.text.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim(),
+  );
+  const wordSets = normalized.map((t) => new Set(t.split(" ").filter((w) => w.length > 2)));
+  for (let i = 0; i < normalized.length; i++) {
+    for (let j = i + 1; j < normalized.length; j++) {
+      if (normalized[i] === normalized[j]) {
+        throw new AiError("AI_INVALID_SHAPE", "The AI returned the same question twice.");
+      }
+      const a = wordSets[i];
+      const b = wordSets[j];
+      let shared = 0;
+      for (const w of a) if (b.has(w)) shared += 1;
+      const similarity = shared / (a.size + b.size - shared); // Jaccard
+      const contained =
+        a.size >= 4 &&
+        b.size >= 4 &&
+        (normalized[i].includes(normalized[j]) || normalized[j].includes(normalized[i]));
+      if (similarity > 0.6 || contained) {
+        throw new AiError("AI_INVALID_SHAPE", "The AI returned near-duplicate questions.");
+      }
+    }
+  }
   return questions;
 }
 
