@@ -109,11 +109,24 @@ model Question {
   questionType  String     @map("question_type")
   createdAt     DateTime   @default(now()) @map("created_at")
 
+  // Adaptive follow-ups: a follow-up copies its original question's
+  // questionOrder (so it sorts directly after it) and carries
+  // followUpIndex 1..N; planned questions keep followUpIndex 0.
+  parentQuestionId String?    @map("parent_question_id") @db.Uuid
+  parentQuestion   Question?  @relation("FollowUpChain", fields: [parentQuestionId], references: [id], onDelete: Cascade)
+  followUps        Question[] @relation("FollowUpChain")
+  isFollowUp       Boolean    @default(false) @map("is_follow_up")
+  followUpIndex    Int        @default(0) @map("follow_up_index")
+
   interview Interview @relation(fields: [interviewId], references: [id], onDelete: Cascade)
   answer    Answer?
 
-  // One question per position in an interview; also backs the FK index.
-  @@unique([interviewId, questionOrder])
+  // One planned question per position; follow-ups share the parent's order
+  // but are distinguished by followUpIndex (also backs the FK index).
+  @@unique([interviewId, questionOrder, followUpIndex])
+  // One follow-up per depth per original question — DB-backed idempotency
+  // for retried follow-up requests.
+  @@unique([parentQuestionId, followUpIndex])
   @@map("questions")
 }
 

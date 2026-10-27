@@ -5,10 +5,12 @@
 // Every return value is validated here (provider structured output + zod),
 // so callers receive typed, bounded data or a typed AiError.
 import { AiError, generateJson } from "./geminiClient.js";
-import { buildEvaluationPrompt, buildQuestionPrompt } from "./prompts.js";
+import { buildEvaluationPrompt, buildFollowUpPrompt, buildQuestionPrompt } from "./prompts.js";
 import {
   evaluationSchema,
+  followUpDecisionSchema,
   geminiEvaluationSchema,
+  geminiFollowUpSchema,
   geminiQuestionSchema,
   questionSetSchema,
 } from "./schemas.js";
@@ -96,3 +98,22 @@ export async function aiEvaluateAnswer(ctx) {
 }
 
 export { AiError };
+
+// Adaptive follow-up decision for one answered question. Returns the raw
+// validated decision (warranted + questionText); persistence is the
+// caller's job. Uses the same provider/key/timeouts as generation.
+export async function aiDecideFollowUp(ctx) {
+  const { system, user } = buildFollowUpPrompt(ctx);
+  const raw = await generateJson({
+    prompt: user,
+    system,
+    responseSchema: geminiFollowUpSchema(),
+    maxOutputTokens: 1024,
+  });
+
+  const parsed = followUpDecisionSchema.safeParse(raw);
+  if (!parsed.success) {
+    throw new AiError('AI_INVALID_SHAPE', 'The AI response did not match the follow-up schema.');
+  }
+  return parsed.data;
+}

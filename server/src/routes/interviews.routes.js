@@ -9,6 +9,7 @@ import {
   create,
   detail,
   evaluate,
+  followup,
   list,
   results,
   session,
@@ -31,6 +32,7 @@ router.get("/analytics", analytics);
 router.get("/", validate(listInterviewsQuerySchema, "query"), list);
 router.post("/:id/start", start);
 router.post("/:id/answers", validate(submitAnswerSchema), answer);
+router.post("/:id/followup", followup);
 router.post("/:id/complete", complete);
 router.post("/:id/evaluate", evaluate);
 router.post("/:id/transcribe", audioUpload.single("audio"), transcribe);

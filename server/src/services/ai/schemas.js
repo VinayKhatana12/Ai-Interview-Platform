@@ -66,3 +66,26 @@ export function geminiEvaluationSchema() {
     required: ["score", "correctness", "feedback", "strengths", "improvements", "modelAnswer"],
   };
 }
+
+// Adaptive follow-up decision: warranted flag plus the follow-up text when
+// warranted. topic/questionType are derived from the parent question.
+export const followUpDecisionSchema = z
+  .object({
+    warranted: z.boolean(),
+    questionText: z.string().trim().max(1000).optional().default(''),
+  })
+  .refine((d) => !d.warranted || d.questionText.length >= 10, {
+    message: 'A warranted follow-up needs question text',
+    path: ['questionText'],
+  });
+
+export function geminiFollowUpSchema() {
+  return {
+    type: 'object',
+    properties: {
+      warranted: { type: 'boolean' },
+      questionText: { type: 'string' },
+    },
+    required: ['warranted', 'questionText'],
+  };
+}

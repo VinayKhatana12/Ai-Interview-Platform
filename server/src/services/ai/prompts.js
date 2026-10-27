@@ -64,6 +64,42 @@ export function buildQuestionPrompt(config) {
   };
 }
 
+export function buildFollowUpPrompt(ctx) {
+  // ctx: { roleTitle, experienceLevel, interviewType, difficulty, topic,
+  //        originalQuestion, answerText, priorChain, evaluation }
+  const chainLines = (ctx.priorChain ?? [])
+    .map(
+      (step, i) =>
+        `Follow-up ${i + 1}: ${step.questionText}\nCandidate's answer: ${step.answerText.slice(0, 800)}`,
+    )
+    .join("\n");
+  const evaluationLine = ctx.evaluation
+    ? `An evaluation of this answer exists (score ${ctx.evaluation.score}/100, verdict ${ctx.evaluation.correctness}). Feedback: ${ctx.evaluation.feedback.slice(0, 300)}`
+    : "No evaluation has been run on this answer yet.";
+  return {
+    system: SHARED_SYSTEM,
+    user: [
+      `You are conducting a ${ctx.interviewType === "BEHAVIORAL" ? "behavioral" : config_TypeLabel(ctx.interviewType)} interview for the role "${ctx.roleTitle}". The candidate is ${EXPERIENCE_GUIDE[ctx.experienceLevel] ?? "an engineer"}. Difficulty: ${ctx.difficulty}. Topic: ${ctx.topic}.`,
+      `The question you asked was:\n${ctx.originalQuestion.slice(0, 800)}`,
+      "<candidate-answer>",
+      ctx.answerText.slice(0, 4000),
+      "</candidate-answer>",
+      evaluationLine,
+      ctx.priorChain?.length
+        ? `Follow-ups already asked on this question (do not repeat them):\n${chainLines}`
+        : "No follow-ups have been asked on this question yet.",
+      "Decide whether ONE follow-up question is warranted. Warrant it only when the answer is incomplete, vague, overclaims without support, mentions something worth probing deeper, or skips a part of the question. A clear, complete, specific, honest answer does NOT need a follow-up.",
+      "If warranted, write one focused follow-up that probes the candidate's own answer: clarify a vague claim, probe the technical reasoning, explore their stated approach, or test something they mentioned. One clear question only.",
+      "If warranted, the follow-up text must not contain evaluation rubrics, scoring notes or meta-commentary.",
+      `Respond as JSON: {"warranted": boolean,"questionText": string (the follow-up question, <=600 chars, empty string when not warranted)}`,
+    ].join("\n"),
+  };
+}
+
+function config_TypeLabel(interviewType) {
+  return interviewType === "BEHAVIORAL" ? "behavioral" : interviewType === "MIXED" ? "mixed technical and behavioral" : "technical";
+}
+
 export function buildEvaluationPrompt(ctx) {
   // Defensive caps: the answer is capped at submission too; truncate again
   // so a hostile client can never balloon the provider request.

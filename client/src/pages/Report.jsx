@@ -36,7 +36,9 @@ function QuestionCard({ item, failed, canEvaluate }) {
     <details open className="break-inside-avoid rounded-[8px] border border-line bg-surface">
       <summary className="flex cursor-pointer flex-wrap items-center justify-between gap-2 border-b border-rule px-5 py-3">
         <span className="text-sm font-medium text-ink">
-          Question {item.question.order} · {item.question.topic}
+          {item.question.isFollowUp
+            ? `Follow-up ${item.question.followUpIndex} of 2 on question ${item.question.order} · ${item.question.topic}`
+            : `Question ${item.question.order} · ${item.question.topic}`}
         </span>
         <span className="flex items-center gap-2.5">
           {failed && (

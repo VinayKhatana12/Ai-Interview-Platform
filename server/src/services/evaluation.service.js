@@ -23,7 +23,7 @@ async function buildResultsView(userId, interviewId) {
 
   const rows = await prisma.question.findMany({
     where: { interviewId },
-    orderBy: { questionOrder: "asc" },
+    orderBy: [{ questionOrder: "asc" }, { isFollowUp: "asc" }, { followUpIndex: "asc" }],
     include: {
       answer: {
         include: { evaluation: true },
@@ -39,7 +39,10 @@ async function buildResultsView(userId, interviewId) {
       topic: q.topic,
       difficulty: q.difficulty,
       questionType: q.questionType,
+      isFollowUp: q.isFollowUp,
+      followUpIndex: q.followUpIndex,
     },
+
     answer: q.answer
       ? {
           id: q.answer.id,

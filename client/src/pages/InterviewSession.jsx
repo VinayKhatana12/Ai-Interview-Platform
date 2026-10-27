@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useBlocker, useNavigate, useParams } from 'react-router-dom'
 import {
   completeInterview,
+  generateFollowUp,
   getInterviewSession,
   startInterview,
   submitAnswer,
@@ -98,6 +99,12 @@ export default function InterviewSession() {
   const storedModeApplied = useRef(false)
   const recorder = useRecorder()
   const [transcription, setTranscription] = useState({ status: 'idle', transcript: '', error: '' })
+  const [followUpState, setFollowUpState] = useState({
+    deciding: false,
+    error: '',
+    isFollowUp: false,
+    forQuestionId: null,
+  })
   const transcriptionBusyRef = useRef(false)
 
   function switchAnswerMode(next) {
@@ -265,15 +272,54 @@ export default function InterviewSession() {
     setSubmitError('')
     setSubmitting(true)
     try {
-      const view = await submitAnswer(id, question.id, answer.trim())
+      const answeredQuestionId = question.id
+      const answeredWasFollowUp = question.isFollowUp
+      const view = await submitAnswer(id, answeredQuestionId, answer.trim())
       sessionStorage.removeItem(draftKey(id))
       setSession(view)
       setSavedNote(view.alreadyRecorded ? 'This answer was already saved' : 'Answer saved')
+
+      // Adaptive follow-up: the server decides whether the answer warrants
+      // one. A failure keeps the answer and the advanced session — retryable
+      // without losing anything.
+      if (view.phase === 'in_progress') {
+        setFollowUpState({ deciding: true, error: '', isFollowUp: false, forQuestionId: answeredQuestionId })
+        try {
+          const res = await generateFollowUp(id, answeredQuestionId)
+          setSession(res.session)
+          setFollowUpState({
+            deciding: false,
+            error: res.note ?? '',
+            isFollowUp: Boolean(res.followUp),
+            forQuestionId: answeredQuestionId,
+          })
+        } catch (err) {
+          setFollowUpState({ deciding: false, error: err.message, isFollowUp: false, forQuestionId: answeredQuestionId })
+        }
+      } else {
+        setFollowUpState({ deciding: false, error: '', isFollowUp: false })
+      }
     } catch (err) {
       // Text stays in the editor; retry resubmits safely (idempotent).
       setSubmitError(`${err.message} Your answer is still in the editor.`)
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  async function handleRetryFollowUp() {
+    if (!followUpState.forQuestionId) return
+    setFollowUpState((s) => ({ ...s, deciding: true, error: '' }))
+    try {
+      const res = await generateFollowUp(id, followUpState.forQuestionId)
+      setSession(res.session)
+      setFollowUpState({
+        deciding: false,
+        error: res.note ?? '',
+        isFollowUp: Boolean(res.followUp),
+      })
+    } catch (err) {
+      setFollowUpState({ deciding: false, error: err.message, isFollowUp: false, forQuestionId: answeredQuestionId })
     }
   }
 
@@ -487,9 +533,10 @@ export default function InterviewSession() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <h1 className="truncate text-2xl font-medium text-ink">{interview.roleTitle}</h1>
-          <p className="mt-1.5 text-sm text-muted tnum">
-            Question {progress.answered + 1} of {progress.total} ·{' '}
-            {difficultyLabel(interview.difficulty)}
+          <p className="mt-1.5 text-sm text-muted tnum" aria-live="polite">
+            {question.isFollowUp
+              ? `Follow-up ${question.followUpIndex} of ${question.followUpLimit} on question ${question.order} · ${difficultyLabel(interview.difficulty)}`
+              : `Question ${progress.answered + 1} of ${progress.total} · ${difficultyLabel(interview.difficulty)}`}
           </p>
         </div>
         <div className="flex items-center gap-5">
@@ -523,6 +570,45 @@ export default function InterviewSession() {
         />
       </div>
 
+      {/* Adaptive follow-up status: deciding, retryable error, or follow-up badge */}
+      {(followUpState.deciding || followUpState.error || followUpState.isFollowUp) && (
+        <div aria-live="polite">
+          {followUpState.deciding && (
+            <p role="status" className="rounded-[8px] border border-line bg-surface px-4 py-3 text-sm text-ink">
+              Analyzing your answer…
+            </p>
+          )}
+          {followUpState.isFollowUp && !followUpState.deciding && (
+            <p role="status" className="rounded-[8px] border border-line bg-surface px-4 py-3 text-sm text-ink">
+              The interviewer wants to dig deeper. A follow-up question is now on top.
+            </p>
+          )}
+          {followUpState.error && !followUpState.deciding && (
+            <div className="rounded-[8px] border border-line bg-surface px-4 py-3">
+              <p role="alert" className="text-sm text-negative">
+                {followUpState.error}
+              </p>
+              <div className="mt-2 flex gap-4">
+                <button
+                  type="button"
+                  onClick={handleRetryFollowUp}
+                  className="h-8 rounded-[6px] border border-control bg-surface px-3 text-sm text-ink hover:bg-raised"
+                >
+                  Retry follow-up
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFollowUpState((s) => ({ ...s, error: '' }))}
+                  className="text-sm text-muted underline underline-offset-2 hover:text-ink"
+                >
+                  Continue without it
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {answerMode === 'voice' ? (
         <VoiceWorkspace
           interviewId={id}
@@ -551,7 +637,7 @@ export default function InterviewSession() {
               value={answer}
               onChange={(e) => onAnswerChange(e.target.value)}
               maxLength={8000}
-              disabled={submitting}
+              disabled={submitting || followUpState.deciding}
               placeholder="Write your answer. It stays saved on this device until you submit."
               className="min-h-[220px] w-full resize-y rounded-[6px] border border-control bg-surface p-3 text-base text-ink placeholder:text-muted/70 focus:border-ink focus:outline-2 focus:outline-offset-1 focus:outline-ink disabled:opacity-60"
             />

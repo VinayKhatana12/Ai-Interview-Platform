@@ -10,6 +10,7 @@
 // repeated submit of the same question returns the recorded state instead of
 // creating a second row.
 import { prisma } from "../db/prisma.js";
+import { env } from "../config/env.js";
 import { HttpError } from "../utils/HttpError.js";
 import { generateQuestions, isAiConfigured } from "./questionGenerator.js";
 import { AiError } from "./ai/provider.js";
@@ -44,15 +45,36 @@ async function buildSessionView(userId, interviewId) {
     prisma.interview.findFirst({ where: { id: interviewId, userId } }),
     prisma.question.findMany({
       where: { interviewId },
-      orderBy: { questionOrder: "asc" },
-      select: { id: true, questionOrder: true, text: true, topic: true, difficulty: true, questionType: true, answer: { select: { id: true } } },
+      orderBy: [{ questionOrder: "asc" }, { isFollowUp: "asc" }, { followUpIndex: "asc" }],
+      select: {
+        id: true,
+        questionOrder: true,
+        text: true,
+        topic: true,
+        difficulty: true,
+        questionType: true,
+        isFollowUp: true,
+        followUpIndex: true,
+        answer: { select: { id: true } },
+      },
     }),
     prisma.answer.count({ where: { interviewId } }),
   ]);
   if (!interview) throw notFound();
 
-  const answered = answers;
-  const total = interview.status === "PENDING" ? interview.questionCount : questions.length;
+  // Progress counts planned questions only; follow-ups are extra depth on
+  // an existing question and are shown through their own label instead.
+  // Progress counts planned questions only; follow-ups are extra depth on
+  // an existing question and are shown through their own label instead.
+  // The planned total is the configured questionCount — true before start
+  // (no rows yet) and after (the generator enforces the exact count).
+  const plannedQuestions = questions.filter((q) => !q.isFollowUp);
+  const answered = plannedQuestions.filter((q) => q.answer).length;
+  const total = interview.questionCount;
+  // Current question: the first unanswered question in interview order —
+  // planned questions at their position, each follow-up directly after the
+  // question it belongs to. (Follow-ups exist only after their parent is
+  // answered, so this ordering is always a valid progression.)
   const firstUnanswered = questions.find((q) => !q.answer);
   const now = Date.now();
   const deadline = interview.startedAt ? deadlineFor(interview).getTime() : null;
@@ -72,6 +94,9 @@ async function buildSessionView(userId, interviewId) {
         topic: firstUnanswered.topic,
         difficulty: firstUnanswered.difficulty,
         questionType: firstUnanswered.questionType,
+        isFollowUp: firstUnanswered.isFollowUp,
+        followUpIndex: firstUnanswered.followUpIndex,
+        followUpLimit: env.FOLLOWUP_MAX_PER_QUESTION,
       }
     : null;
 
@@ -186,7 +211,7 @@ export async function submitAnswer(userId, interviewId, { questionId, responseTe
 
   const questions = await prisma.question.findMany({
     where: { interviewId },
-    orderBy: { questionOrder: "asc" },
+    orderBy: [{ questionOrder: "asc" }, { isFollowUp: "asc" }, { followUpIndex: "asc" }],
     include: { answer: { select: { id: true, submittedAt: true } } },
   });
   const target = questions.find((q) => q.id === questionId);
@@ -217,7 +242,12 @@ export async function submitAnswer(userId, interviewId, { questionId, responseTe
   // question row was created — otherwise later questions inherit all the
   // earlier answering time.
   const priorSubmitAt = questions
-    .filter((q) => q.answer && q.questionOrder < target.questionOrder)
+    .filter(
+      (q) =>
+        q.answer &&
+        (q.questionOrder < target.questionOrder ||
+          (q.questionOrder === target.questionOrder && q.followUpIndex < target.followUpIndex)),
+    )
     .reduce((latest, q) => (q.answer.submittedAt > latest ? q.answer.submittedAt : latest), interview.startedAt)
   const elapsedSeconds = Math.max(0, Math.round((Date.now() - priorSubmitAt.getTime()) / 1000))
 

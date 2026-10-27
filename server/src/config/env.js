@@ -28,6 +28,9 @@ const schema = z.object({
   AI_TIMEOUT_MS: z.coerce.number().int().min(1000).max(120000).default(30000),
   // Speech-to-text (OpenAI gpt-transcribe). Without OPENAI_API_KEY the
   // transcribe endpoint answers 503 STT_NOT_CONFIGURED; empty counts as unset.
+  // Adaptive follow-ups: max follow-up questions per original planned
+  // question (0 disables follow-ups entirely).
+  FOLLOWUP_MAX_PER_QUESTION: z.coerce.number().int().min(0).max(5).default(2),
   OPENAI_API_KEY: z.preprocess(
     (v) => (v === "" ? undefined : v),
     z.string().min(1).optional(),

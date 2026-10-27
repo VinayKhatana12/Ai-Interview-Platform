@@ -14,6 +14,8 @@ import {
 import { buildResultsView, evaluateInterview } from "../services/evaluation.service.js";
 import { transcribeInterviewAudio } from "../services/transcription.service.js";
 import { generateQuestionSpeech, speechRequestSchema } from "../services/speech.service.js";
+import { generateFollowUp } from "../services/followup.service.js";
+import { z } from "zod";
 
 // POST /api/interviews — owner derived from the session, never the body.
 async function create(req, res, next) {
@@ -141,4 +143,25 @@ async function speech(req, res, next) {
   }
 }
 
-export { create, list, detail, stats, analytics, start, session, answer, complete, evaluate, results, transcribe, speech };
+// POST /:id/followup — decide and (if warranted) generate one adaptive
+// follow-up for an answered question. 200 even when the AI fails: the
+// response carries the advanced session and a retryable note, so the
+// candidate never loses an answer over a provider hiccup.
+const followupBodySchema = z.strictObject({ questionId: z.string().uuid('Unknown question') });
+
+async function followup(req, res, next) {
+  try {
+    const parsed = followupBodySchema.safeParse(req.body ?? {});
+    if (!parsed.success) {
+      return res.status(422).json({
+        error: { code: 'VALIDATION_ERROR', message: 'Some fields need attention.', details: { questionId: 'Unknown question' } },
+      });
+    }
+    const result = await generateFollowUp(req.user.id, req.params.id, parsed.data.questionId);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export { create, list, detail, stats, analytics, start, session, answer, complete, evaluate, results, transcribe, speech, followup };
