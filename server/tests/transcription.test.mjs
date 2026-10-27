@@ -57,9 +57,10 @@ const CONFIG = {
   durationMinutes: 20,
 };
 
-// A plausible non-empty WebM-ish buffer (only size/mime matter to our code;
-// the SDK call is mocked).
-const audioBuffer = Buffer.alloc(4096, 7);
+// A recording-shaped fixture: real WebM (EBML) magic bytes. The upload
+// validation now sniffs the container header rather than trusting the
+// client-declared MIME type, so the "valid recording" fixture must be one.
+const audioBuffer = Buffer.concat([Buffer.from([0x1a, 0x45, 0xdf, 0xa3]), Buffer.alloc(4092, 7)]);
 
 let cookieA = "";
 let cookieB = "";
@@ -344,7 +345,11 @@ describe("POST /api/interviews/:id/transcribe — Gemini provider (fetch stubbed
 
     // Over the 14 MB inline ceiling for the Gemini tier (before any fetch).
     stubGemini([]);
-    const huge = await postAudio(cookieA, Buffer.alloc(15 * 1024 * 1024, 1));
+    const hugeWebm = Buffer.concat([
+      Buffer.from([0x1a, 0x45, 0xdf, 0xa3]),
+      Buffer.alloc(15 * 1024 * 1024 - 4, 1),
+    ]);
+    const huge = await postAudio(cookieA, hugeWebm);
     expect(huge.status).toBe(413);
     expect(huge.body.error.code).toBe("AUDIO_TOO_LARGE");
     expect(vi.mocked(globalThis.fetch)).not.toHaveBeenCalled();

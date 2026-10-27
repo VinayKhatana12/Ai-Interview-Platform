@@ -35,6 +35,22 @@ const schema = z.object({
     (v) => (v === "" ? undefined : v),
     z.string().min(1).optional(),
   ),
+  // Cross-origin deployments only. Comma-separated absolute origins — a
+  // wildcard is rejected outright because the session cookie is sent with
+  // credentials. Unset (the default) means same-origin only: no CORS headers
+  // at all, which is correct for the Vite-proxy dev setup and same-site
+  // production deployments.
+  CORS_ORIGINS: z
+    .string()
+    .optional()
+    .transform((v) => (v ? v.split(",").map((o) => o.trim()).filter(Boolean) : null))
+    .refine(
+      (list) =>
+        list === null ||
+        (list.length > 0 &&
+          list.every((o) => /^https?:\/\//.test(o) && !o.includes("*"))),
+      "must be comma-separated absolute origins (no wildcards)",
+    ),
 });
 
 const parsed = schema.safeParse(process.env);
@@ -47,3 +63,11 @@ if (!parsed.success) {
 }
 
 export const env = parsed.data;
+
+// Production must know it is about to serve labeled development fixtures —
+// that is a legitimate mode, but only when chosen deliberately.
+if (env.NODE_ENV === "production" && !env.AI_API_KEY) {
+  console.warn(
+    "[env] AI_API_KEY is not set: the API will serve labeled development fixture questions/evaluations.",
+  );
+}

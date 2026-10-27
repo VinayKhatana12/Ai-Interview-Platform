@@ -27,3 +27,14 @@ export const speechLimiter = rateLimit({
   legacyHeaders: false,
   handler: jsonErrorEnvelope(429, "RATE_LIMITED", "Too many voice requests. Wait a moment and try again."),
 });
+
+// Transcription is also a metered provider call (audio in, transcript out).
+// The client transcribes once per recorded answer, so this ceiling is far
+// above real use; it exists to stop runaway or abusive callers.
+export const sttLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: env.NODE_ENV === "test" ? 100000 : 40,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: jsonErrorEnvelope(429, "RATE_LIMITED", "Too many transcription requests. Wait a moment and try again."),
+});

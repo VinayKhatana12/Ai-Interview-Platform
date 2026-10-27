@@ -3,7 +3,7 @@
 // Phase 2.2); duplicate calls simply re-run and are guarded client-side.
 import { prisma } from "../db/prisma.js";
 import { HttpError } from "../utils/HttpError.js";
-import { isAllowedAudioType } from "./ai/audioFormats.js";
+import { isAllowedAudioType, sniffAllowedAudio } from "./ai/audioFormats.js";
 import { transcribeAudio } from "./ai/sttProvider.js";
 
 const MIN_AUDIO_BYTES = 1024; // smaller than this is not a real recording
@@ -34,6 +34,15 @@ export async function transcribeInterviewAudio(userId, interviewId, file) {
     throw new HttpError(422, "EMPTY_AUDIO", "The recording is empty. Record your answer and try again.");
   }
   if (!isAllowedAudioType(file.mimetype)) {
+    throw new HttpError(
+      422,
+      "UNSUPPORTED_AUDIO_TYPE",
+      "Unsupported audio format. Record with the in-app recorder (WebM, MP4 or OGG).",
+    );
+  }
+  // The multipart MIME header is client-controlled, so the buffer's magic
+  // bytes must agree before the audio is handed to the provider.
+  if (!sniffAllowedAudio(file.buffer)) {
     throw new HttpError(
       422,
       "UNSUPPORTED_AUDIO_TYPE",

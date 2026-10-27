@@ -19,5 +19,7 @@ export function signSession(user) {
 }
 
 export function verifySession(token) {
-  return jwt.verify(token, env.JWT_SECRET, { issuer: ISSUER });
+  // algorithms pinned: the token is always HMAC-SHA256; the pin removes any
+  // algorithm-confusion surface regardless of what a forged header claims.
+  return jwt.verify(token, env.JWT_SECRET, { issuer: ISSUER, algorithms: ["HS256"] });
 }

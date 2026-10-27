@@ -1,9 +1,10 @@
-// Replaces the request body (or query) with the schema's parsed output —
-// trimmed, lowercased emails, coerced numbers — or rejects with per-field
-// details for the form to show inline.
+// Replaces the request body (query or params) with the schema's parsed
+// output — trimmed, lowercased emails, coerced numbers — or rejects with
+// per-field details for the form to show inline. The params target guards
+// URL segments (ids) before they reach Prisma.
 export function validate(schema, target = "body") {
   return (req, res, next) => {
-    const source = target === "query" ? req.query : req.body ?? {};
+    const source = target === "query" ? req.query : target === "params" ? req.params : req.body ?? {};
     const result = schema.safeParse(source);
     if (!result.success) {
       const details = {};
@@ -21,6 +22,8 @@ export function validate(schema, target = "body") {
     }
     if (target === "query") {
       req.validatedQuery = result.data;
+    } else if (target === "params") {
+      Object.assign(req.params, result.data);
     } else {
       req.body = result.data;
     }

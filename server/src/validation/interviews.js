@@ -63,6 +63,13 @@ export const listInterviewsQuerySchema = z.object({
   to: z.coerce.date().optional(),
 });
 
+// GET /:id/compare?with=<otherId>. `with` is required and bounded — a raw
+// req.query value could be an array (repeated params) and would reach
+// Prisma unvalidated.
+export const compareQuerySchema = z.object({
+  with: z.string().regex(/^[A-Za-z0-9_-]{1,64}$/, "Invalid interview id"),
+});
+
 export const updateMeSchema = z
   .strictObject({
     name: z

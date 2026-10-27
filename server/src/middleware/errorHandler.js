@@ -40,7 +40,19 @@ export function errorHandler(err, req, res, next) {
     });
   }
 
-  console.error("[unhandled error]", err);
+  // Structured single-line log: correlation id, request shape and the error
+  // itself. Bodies, headers and cookies are never logged — they carry user
+  // answers and credentials.
+  const log = JSON.stringify({
+    level: "error",
+    requestId: req.id,
+    method: req.method,
+    url: req.originalUrl,
+    error: err?.code ?? err?.name ?? "UNKNOWN",
+    message: err?.message,
+    stack: err?.stack,
+  });
+  console.error(log);
   return res.status(500).json({
     error: { code: "INTERNAL", message: "Something went wrong. Please try again." },
   });

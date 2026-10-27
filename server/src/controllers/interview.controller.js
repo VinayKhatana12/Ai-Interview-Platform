@@ -190,7 +190,7 @@ async function retake(req, res, next) {
 // GET /:id/compare?with=<otherId> — two owned completed attempts, honestly caveated.
 async function compare(req, res, next) {
   try {
-    const result = await compareInterviews(req.user.id, req.params.id, req.query.with);
+    const result = await compareInterviews(req.user.id, req.params.id, req.validatedQuery.with);
     res.json(result);
   } catch (err) {
     next(err);
