@@ -95,6 +95,19 @@ async function buildResultsView(userId, interviewId) {
       }));
   }
 
+  // Persisted whole-interview feedback (null until generated via POST).
+  const feedbackRow = await prisma.interviewReport.findUnique({ where: { interviewId } });
+  const feedback = feedbackRow
+    ? {
+        summary: feedbackRow.summary,
+        strengths: feedbackRow.strengths,
+        improvements: feedbackRow.improvements,
+        skillNotes: feedbackRow.skillNotes,
+        plan: feedbackRow.plan,
+        createdAt: feedbackRow.createdAt,
+      }
+    : null;
+
   return {
     interview: {
       id: interview.id,
@@ -110,6 +123,7 @@ async function buildResultsView(userId, interviewId) {
     totalAnswered: items.filter((i) => i.answer).length,
     avgScore,
     practiceSuggestions,
+    feedback,
     feedbackSource: isAiConfigured() ? "ai" : "fixture",
     disclaimer:
       "AI-generated practice feedback. It is a signal for your preparation, not a guaranteed hiring outcome.",

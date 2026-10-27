@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { Printer } from 'lucide-react'
-import { getInterviewResults, evaluateInterview } from '../api/interviews.js'
+import { getInterviewResults, evaluateInterview, generateInterviewFeedback } from '../api/interviews.js'
 import { StatusPill } from '../components/StatusPill.jsx'
 import { BlockError } from '../components/States.jsx'
 import { RowsSkeleton } from '../components/Skeletons.jsx'
@@ -22,6 +22,20 @@ const CORRECTNESS_LABELS = {
   CORRECT: 'Correct',
   PARTIALLY_CORRECT: 'Partially correct',
   INCORRECT: 'Incorrect',
+}
+
+// Improvement-plan priority pills: pale tints with dark text of the same
+// hue, matching the app's status-pill conventions.
+const PRIORITY_STYLES = {
+  HIGH: 'bg-[#ffedea] text-[#831c1e]',
+  MEDIUM: 'bg-[#fffbeb] text-[#92400e]',
+  LOW: 'bg-raised text-[#3d3d3d]',
+}
+
+const CONFIDENCE_LABELS = {
+  HIGH: 'Well evidenced',
+  MEDIUM: 'Moderately evidenced',
+  LOW: 'Limited evidence',
 }
 
 function fmtDate(iso) {
@@ -135,6 +149,7 @@ export default function Report() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [evaluating, setEvaluating] = useState(false)
+  const [feedbackGenerating, setFeedbackGenerating] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -161,6 +176,19 @@ export default function Report() {
       setError(err.message)
     } finally {
       setEvaluating(false)
+    }
+  }
+
+  async function handleGenerateFeedback() {
+    setFeedbackGenerating(true)
+    setError('')
+    try {
+      const res = await generateInterviewFeedback(id)
+      setResults((prev) => (prev ? { ...prev, feedback: res.feedback } : prev))
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setFeedbackGenerating(false)
     }
   }
 
@@ -294,6 +322,117 @@ export default function Report() {
             {evaluating ? 'Evaluating…' : hasFailures ? 'Retry feedback' : 'Get feedback'}
           </button>
         </div>
+      )}
+
+      {/* Whole-interview AI feedback + prioritized improvement plan */}
+      {completed && evaluatedAll && !results.feedback && (
+        <div className="flex flex-wrap items-center justify-between gap-4 rounded-[8px] border border-line bg-surface px-5 py-4 print:hidden">
+          <p className="text-sm text-muted">
+            {feedbackGenerating
+              ? 'Preparing your personalized feedback…'
+              : 'Your per-answer feedback is ready. Generate the overall report for a summary and a prioritized improvement plan.'}
+          </p>
+          <button
+            type="button"
+            onClick={handleGenerateFeedback}
+            disabled={feedbackGenerating}
+            className="h-10 flex-none rounded-[6px] bg-primary px-5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+          >
+            {feedbackGenerating ? 'Preparing…' : 'Generate overall feedback'}
+          </button>
+        </div>
+      )}
+
+      {results.feedback && (
+        <>
+          <section className="rounded-[8px] border border-line bg-surface" aria-label="Overall feedback">
+            <div className="px-5 py-4">
+              <h2 className="text-base font-medium text-ink">Overall feedback</h2>
+              <p className="mt-2 text-sm leading-relaxed text-ink">{results.feedback.summary}</p>
+            </div>
+            <div className="grid gap-5 border-t border-rule px-5 py-5 sm:grid-cols-2">
+              <div>
+                <h3 className="text-xs font-medium text-muted">Key strengths</h3>
+                <ul className="mt-2 space-y-2.5">
+                  {results.feedback.strengths.map((s, i) => (
+                    <li key={i} className="text-sm">
+                      <p className="text-ink">{s.point}</p>
+                      <p className="mt-0.5 text-xs text-muted">Evidence: {s.evidence}</p>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div>
+                <h3 className="text-xs font-medium text-muted">Areas to improve</h3>
+                <ul className="mt-2 space-y-2.5">
+                  {results.feedback.improvements.map((s, i) => (
+                    <li key={i} className="text-sm">
+                      <p className="text-ink">{s.point}</p>
+                      <p className="mt-0.5 text-xs text-muted">Evidence: {s.evidence}</p>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </section>
+
+          <section className="rounded-[8px] border border-line bg-surface" aria-label="Skill assessment">
+            <div className="px-5 py-4">
+              <h2 className="text-base font-medium text-ink">Skill assessment</h2>
+              <p className="mt-1 text-xs text-muted">
+                Qualitative notes per topic, based only on the answers you gave. Confidence reflects how much evidence the topic had.
+              </p>
+            </div>
+            <ul className="divide-y divide-rule border-t border-rule">
+              {results.feedback.skillNotes.map((n) => (
+                <li key={n.topic} className="px-5 py-4">
+                  <div className="flex flex-wrap items-baseline justify-between gap-2">
+                    <p className="text-sm font-medium text-ink">{n.topic}</p>
+                    <span className="inline-flex h-6 items-center rounded-full bg-raised px-2.5 text-xs font-medium text-[#3d3d3d]">
+                      {CONFIDENCE_LABELS[n.confidence] ?? n.confidence}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-sm leading-relaxed text-ink">{n.assessment}</p>
+                  <p className="mt-1 text-xs text-muted">Evidence: {n.evidence}</p>
+                </li>
+              ))}
+            </ul>
+          </section>
+
+          <section className="rounded-[8px] border border-line bg-surface" aria-label="Improvement plan">
+            <div className="px-5 py-4">
+              <h2 className="text-base font-medium text-ink">Improvement plan</h2>
+              <p className="mt-1 text-xs text-muted">
+                Prioritized from your weakest results, in the order we suggest working through them.
+              </p>
+            </div>
+            <ol className="divide-y divide-rule border-t border-rule">
+              {results.feedback.plan.map((p) => (
+                <li key={p.sequence} className="break-inside-avoid px-5 py-4">
+                  <div className="flex flex-wrap items-baseline justify-between gap-2">
+                    <p className="text-sm font-medium text-ink">
+                      {p.sequence}. {p.topic}
+                    </p>
+                    <span className={`inline-flex h-6 items-center rounded-full px-2.5 text-xs font-medium ${PRIORITY_STYLES[p.priority] ?? PRIORITY_STYLES.MEDIUM}`}>
+                      {p.priority[0] + p.priority.slice(1).toLowerCase()} priority
+                    </span>
+                  </div>
+                  <p className="mt-1.5 text-sm text-muted">{p.why}</p>
+                  <dl className="mt-2.5 space-y-1.5 text-sm">
+                    <div className="flex gap-2">
+                      <dt className="flex-none text-xs font-medium text-muted">Exercise</dt>
+                      <dd className="text-ink">{p.exercise}</dd>
+                    </div>
+                    <div className="flex gap-2">
+                      <dt className="flex-none text-xs font-medium text-muted">Done when</dt>
+                      <dd className="text-ink">{p.doneWhen}</dd>
+                    </div>
+                  </dl>
+                </li>
+              ))}
+            </ol>
+          </section>
+        </>
       )}
 
       {results.practiceSuggestions === null ? null : results.practiceSuggestions.length > 0 ? (

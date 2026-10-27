@@ -89,3 +89,39 @@ export function geminiFollowUpSchema() {
     required: ['warranted', 'questionText'],
   };
 }
+
+// Whole-interview feedback report. Evidence strings are mandatory so the
+// candidate can check every claim against their own answers.
+export const interviewFeedbackSchema = z.object({
+  summary: z.string().trim().min(30).max(2000),
+  strengths: z.array(z.object({ point: z.string().trim().min(5).max(300), evidence: z.string().trim().min(10).max(500) })).min(1).max(4),
+  improvements: z.array(z.object({ point: z.string().trim().min(5).max(300), evidence: z.string().trim().min(10).max(500) })).min(1).max(4),
+  skillNotes: z.array(z.object({
+    topic: z.string().trim().min(2).max(60),
+    assessment: z.string().trim().min(10).max(600),
+    evidence: z.string().trim().min(10).max(500),
+    confidence: z.enum(["HIGH", "MEDIUM", "LOW"]),
+  })).min(1).max(6),
+  plan: z.array(z.object({
+    topic: z.string().trim().min(2).max(60),
+    why: z.string().trim().min(10).max(500),
+    priority: z.enum(["HIGH", "MEDIUM", "LOW"]),
+    exercise: z.string().trim().min(10).max(600),
+    doneWhen: z.string().trim().min(10).max(300),
+    sequence: z.coerce.number().int().min(1).max(10),
+  })).min(2).max(4),
+});
+
+export function geminiInterviewFeedbackSchema() {
+  return {
+    type: "object",
+    properties: {
+      summary: { type: "string" },
+      strengths: { type: "array", items: { type: "object", properties: { point: { type: "string" }, evidence: { type: "string" } }, required: ["point", "evidence"] } },
+      improvements: { type: "array", items: { type: "object", properties: { point: { type: "string" }, evidence: { type: "string" } }, required: ["point", "evidence"] } },
+      skillNotes: { type: "array", items: { type: "object", properties: { topic: { type: "string" }, assessment: { type: "string" }, evidence: { type: "string" }, confidence: { type: "string", enum: ["HIGH", "MEDIUM", "LOW"] } }, required: ["topic", "assessment", "evidence", "confidence"] } },
+      plan: { type: "array", items: { type: "object", properties: { topic: { type: "string" }, why: { type: "string" }, priority: { type: "string", enum: ["HIGH", "MEDIUM", "LOW"] }, exercise: { type: "string" }, doneWhen: { type: "string" }, sequence: { type: "number" } }, required: ["topic", "why", "priority", "exercise", "doneWhen", "sequence"] } },
+    },
+    required: ["summary", "strengths", "improvements", "skillNotes", "plan"],
+  };
+}

@@ -100,6 +100,36 @@ function config_TypeLabel(interviewType) {
   return interviewType === "BEHAVIORAL" ? "behavioral" : interviewType === "MIXED" ? "mixed technical and behavioral" : "technical";
 }
 
+// Whole-interview feedback report. Grounded strictly in the persisted
+// questions, answers and evaluations passed in ctx.entries; qualitative
+// judgments must cite specific evidence from the candidate's answers.
+export function buildInterviewFeedbackPrompt(ctx) {
+  const entryLines = ctx.entries
+    .map((e) => {
+      const label = e.isFollowUp
+        ? `Follow-up ${e.followUpIndex} on question ${e.order} (topic: ${e.topic})`
+        : `Question ${e.order} (topic: ${e.topic}, type: ${e.questionType})`;
+      return [
+        `${label}:`,
+        `Q: ${e.questionText.slice(0, 500)}`,
+        `A: ${e.answerText.slice(0, 1200)}`,
+        `Evaluation: score ${e.score}/100, ${e.correctness}. Feedback: ${e.feedback.slice(0, 300)}`,
+      ].join("\n");
+    })
+    .join("\n\n");
+  return {
+    system: SHARED_SYSTEM,
+    user: [
+      `Write an end-of-interview feedback report for a candidate who just finished a ${config_TypeLabel(ctx.interviewType)} interview for the role "${ctx.roleTitle}". The candidate is ${EXPERIENCE_GUIDE[ctx.experienceLevel] ?? "an engineer"}. Difficulty: ${ctx.difficulty}. Topics: ${ctx.topics.join(", ")}.`,
+      "Base every statement ONLY on the questions, answers and evaluations below. Never invent answers, scores or measurements. Qualitative judgments must cite specific evidence from the candidate's answers. The report is practice feedback, not a hiring verdict.",
+      "--- INTERVIEW RECORD ---",
+      entryLines,
+      "--- END RECORD ---",
+      'Respond as JSON: {"summary": string (3-5 sentences, grounded, addressed to the candidate),"strengths":[{"point": string,"evidence": string citing the answer}] (1-4),"improvements":[{"point": string,"evidence": string}] (1-4),"skillNotes":[{"topic": one of the topics above,"assessment": string,"evidence": string,"confidence": "HIGH"|"MEDIUM"|"LOW"}] (one per topic that appeared),"plan":[{"topic": string,"why": string grounded in weak results,"priority": "HIGH"|"MEDIUM"|"LOW","exercise": string (a concrete task),"doneWhen": string (a completion criterion),"sequence": number}] (2-4 items, weakest first, no generic advice like practice more, no external course URLs)',
+    ].join("\n"),
+  };
+}
+
 export function buildEvaluationPrompt(ctx) {
   // Defensive caps: the answer is capped at submission too; truncate again
   // so a hostile client can never balloon the provider request.

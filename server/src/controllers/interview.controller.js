@@ -15,6 +15,7 @@ import { buildResultsView, evaluateInterview } from "../services/evaluation.serv
 import { transcribeInterviewAudio } from "../services/transcription.service.js";
 import { generateQuestionSpeech, speechRequestSchema } from "../services/speech.service.js";
 import { generateFollowUp } from "../services/followup.service.js";
+import { generateInterviewFeedback } from "../services/feedback.service.js";
 import { z } from "zod";
 
 // POST /api/interviews — owner derived from the session, never the body.
@@ -164,4 +165,15 @@ async function followup(req, res, next) {
   }
 }
 
-export { create, list, detail, stats, analytics, start, session, answer, complete, evaluate, results, transcribe, speech, followup };
+// POST /:id/feedback — whole-interview AI feedback + improvement plan.
+// Generates once (DB-idempotent); safe to retry after provider failures.
+async function feedback(req, res, next) {
+  try {
+    const report = await generateInterviewFeedback(req.user.id, req.params.id);
+    res.json({ feedback: report });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export { create, list, detail, stats, analytics, start, session, answer, complete, evaluate, results, transcribe, speech, followup, feedback };

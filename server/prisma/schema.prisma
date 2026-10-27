@@ -93,6 +93,7 @@ model Interview {
   user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   questions Question[]
   answers   Answer[]
+  report    InterviewReport?
 
   // Serves "list this user's interviews, newest first" and the FK lookups.
   @@index([userId, createdAt])
@@ -175,4 +176,24 @@ model Evaluation {
   answer Answer @relation(fields: [answerId], references: [id], onDelete: Cascade)
 
   @@map("evaluations")
+}
+
+// Whole-interview AI feedback + prioritized improvement plan, generated
+// once after completion from persisted questions, answers and evaluations.
+// JSON columns are validated by zod on write; unique interviewId makes
+// report generation DB-idempotent.
+model InterviewReport {
+  id          String   @id @default(uuid()) @db.Uuid
+  interviewId String   @unique @map("interview_id") @db.Uuid
+  summary     String
+  strengths   Json
+  improvements Json
+  skillNotes  Json     @map("skill_notes")
+  plan        Json
+  modelUsed   String   @map("model_used")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  interview Interview @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+
+  @@map("interview_reports")
 }

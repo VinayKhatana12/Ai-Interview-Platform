@@ -9,6 +9,7 @@ import {
   create,
   detail,
   evaluate,
+  feedback,
   followup,
   list,
   results,
@@ -35,6 +36,7 @@ router.post("/:id/answers", validate(submitAnswerSchema), answer);
 router.post("/:id/followup", followup);
 router.post("/:id/complete", complete);
 router.post("/:id/evaluate", evaluate);
+router.post("/:id/feedback", feedback);
 router.post("/:id/transcribe", audioUpload.single("audio"), transcribe);
 router.post("/:id/speech", speechLimiter, speech);
 router.get("/:id", detail);

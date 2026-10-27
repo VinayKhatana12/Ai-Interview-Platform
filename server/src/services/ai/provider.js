@@ -5,13 +5,15 @@
 // Every return value is validated here (provider structured output + zod),
 // so callers receive typed, bounded data or a typed AiError.
 import { AiError, generateJson } from "./geminiClient.js";
-import { buildEvaluationPrompt, buildFollowUpPrompt, buildQuestionPrompt } from "./prompts.js";
+import { buildInterviewFeedbackPrompt, buildEvaluationPrompt, buildFollowUpPrompt, buildQuestionPrompt } from "./prompts.js";
 import {
   evaluationSchema,
   followUpDecisionSchema,
   geminiEvaluationSchema,
   geminiFollowUpSchema,
+  geminiInterviewFeedbackSchema,
   geminiQuestionSchema,
+  interviewFeedbackSchema,
   questionSetSchema,
 } from "./schemas.js";
 
@@ -114,6 +116,24 @@ export async function aiDecideFollowUp(ctx) {
   const parsed = followUpDecisionSchema.safeParse(raw);
   if (!parsed.success) {
     throw new AiError('AI_INVALID_SHAPE', 'The AI response did not match the follow-up schema.');
+  }
+  return parsed.data;
+}
+
+// Whole-interview feedback report: validated structured output for the
+// persisted interview record. Persistence is the caller's job.
+export async function aiGenerateInterviewFeedback(ctx) {
+  const { system, user } = buildInterviewFeedbackPrompt(ctx);
+  const raw = await generateJson({
+    prompt: user,
+    system,
+    responseSchema: geminiInterviewFeedbackSchema(),
+    maxOutputTokens: 8192,
+  });
+
+  const parsed = interviewFeedbackSchema.safeParse(raw);
+  if (!parsed.success) {
+    throw new AiError("AI_INVALID_SHAPE", "The AI response did not match the feedback report schema.");
   }
   return parsed.data;
 }
