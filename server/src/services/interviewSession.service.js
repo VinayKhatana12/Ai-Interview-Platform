@@ -157,6 +157,8 @@ export async function startInterview(userId, interviewId) {
       // Typed AiErrors and unexpected provider crashes map to the same 503.
       if (!(err instanceof AiError)) {
         console.error("[question generation] unexpected failure:", err);
+      } else {
+        console.error("[question generation] AiError:", err.code, err.message);
       }
       throw new HttpError(
         503,

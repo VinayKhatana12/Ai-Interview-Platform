@@ -3,8 +3,14 @@ import { api } from './client.js'
 export const createInterview = (config) =>
   api('/api/interviews', { method: 'POST', body: config })
 
-export const listInterviews = (page = 1, pageSize = 10) =>
-  api(`/api/interviews?page=${page}&pageSize=${pageSize}`)
+export const listInterviews = (page = 1, pageSize = 10, filters = {}) => {
+  const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) })
+  // Server validates these (status enum, date coercion); empty values are omitted.
+  for (const key of ['status', 'role', 'from', 'to']) {
+    if (filters[key]) params.set(key, filters[key])
+  }
+  return api(`/api/interviews?${params.toString()}`)
+}
 
 export const getInterviewStats = () => api('/api/interviews/stats')
 export const getInterviewAnalytics = () => api('/api/interviews/analytics')
@@ -21,6 +27,11 @@ export const getInterviewResults = (id) => api(`/api/interviews/${id}/results`)
 export const evaluateInterview = (id) => api(`/api/interviews/${id}/evaluate`, { method: 'POST' })
 export const generateInterviewFeedback = (id) =>
   api(`/api/interviews/${id}/feedback`, { method: 'POST' })
+// Retake: new PENDING attempt from this interview's saved configuration.
+export const retakeInterview = (id) => api(`/api/interviews/${id}/retake`, { method: 'POST' })
+// Compare two owned completed attempts (the other one via the `with` query).
+export const compareInterviews = (id, otherId) =>
+  api(`/api/interviews/${id}/compare?with=${encodeURIComponent(otherId)}`)
 export const transcribeRecording = (id, blob) => {
   const form = new FormData()
   form.append('audio', blob, 'recording.webm')

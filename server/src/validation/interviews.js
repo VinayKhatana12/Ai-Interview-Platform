@@ -56,6 +56,11 @@ export const createInterviewSchema = z.strictObject({
 export const listInterviewsQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(20).default(10),
+  // History filters, all optional. Role is a substring match on roleTitle.
+  status: z.enum(['PENDING', 'IN_PROGRESS', 'COMPLETED']).optional(),
+  role: z.string().trim().min(1).max(80).optional(),
+  from: z.coerce.date().optional(),
+  to: z.coerce.date().optional(),
 });
 
 export const updateMeSchema = z

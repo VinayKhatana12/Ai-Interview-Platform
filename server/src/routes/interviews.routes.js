@@ -16,6 +16,8 @@ import {
   session,
   speech,
   analytics,
+  retake,
+  compare,
   start,
   stats,
   transcribe,
@@ -37,6 +39,8 @@ router.post("/:id/followup", followup);
 router.post("/:id/complete", complete);
 router.post("/:id/evaluate", evaluate);
 router.post("/:id/feedback", feedback);
+router.post("/:id/retake", retake);
+router.get("/:id/compare", compare);
 router.post("/:id/transcribe", audioUpload.single("audio"), transcribe);
 router.post("/:id/speech", speechLimiter, speech);
 router.get("/:id", detail);

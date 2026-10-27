@@ -1,12 +1,13 @@
 // One interview row, shared by Dashboard (capped) and History (full list).
 // Desktop: identity left, figures right-aligned tabular. Phone: identity and
 // status; figures fold into the subline (app-screens §12). Actionable rows
-// (draft or in progress) carry one ink text action in a fixed trailing slot.
+// carry ink text actions in one fixed trailing slot — History passes onRetake
+// so completed rows can also spawn a fresh attempt from the same config.
 import { Link } from 'react-router-dom'
 import { StatusPill } from './StatusPill.jsx'
 import { formatDateShort, scoreText } from '../utils/format.js'
 
-export function InterviewRow({ interview }) {
+export function InterviewRow({ interview, onRetake, retaking }) {
   const action =
     interview.status === 'PENDING'
       ? { label: 'Start', to: `/interviews/${interview.id}` }
@@ -15,6 +16,8 @@ export function InterviewRow({ interview }) {
         : interview.status === 'COMPLETED'
           ? { label: 'Results', to: `/interviews/${interview.id}/report` }
           : null
+
+  const showRetake = Boolean(onRetake) && interview.status === 'COMPLETED'
 
   return (
     <div className="flex items-center justify-between gap-4 py-3">
@@ -41,13 +44,27 @@ export function InterviewRow({ interview }) {
         </span>
         <span className="w-24 text-right text-xs text-muted">{formatDateShort(interview.createdAt)}</span>
         <StatusPill status={interview.status} />
-        {action && (
-          <Link
-            to={action.to}
-            className="w-14 text-right text-sm font-medium text-ink underline underline-offset-2 hover:opacity-80"
-          >
-            {action.label}
-          </Link>
+        {(action || showRetake) && (
+          <span className="flex w-28 flex-none items-center justify-end gap-4">
+            {action && (
+              <Link
+                to={action.to}
+                className="text-sm font-medium text-ink underline underline-offset-2 hover:opacity-80"
+              >
+                {action.label}
+              </Link>
+            )}
+            {showRetake && (
+              <button
+                type="button"
+                onClick={() => onRetake(interview)}
+                disabled={retaking}
+                className="text-sm font-medium text-ink underline underline-offset-2 hover:opacity-80 disabled:opacity-50"
+              >
+                {retaking ? 'Retaking…' : 'Retake'}
+              </button>
+            )}
+          </span>
         )}
       </div>
       <div className="flex flex-col items-end gap-1.5 md:hidden">
@@ -58,6 +75,16 @@ export function InterviewRow({ interview }) {
             <Link to={action.to} className="text-sm font-medium text-ink underline underline-offset-2">
               {action.label}
             </Link>
+          )}
+          {showRetake && (
+            <button
+              type="button"
+              onClick={() => onRetake(interview)}
+              disabled={retaking}
+              className="text-sm font-medium text-ink underline underline-offset-2 disabled:opacity-50"
+            >
+              {retaking ? 'Retaking…' : 'Retake'}
+            </button>
           )}
         </div>
       </div>

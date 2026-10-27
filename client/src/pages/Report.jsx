@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Printer } from 'lucide-react'
-import { getInterviewResults, evaluateInterview, generateInterviewFeedback } from '../api/interviews.js'
+import {
+  getInterviewResults,
+  evaluateInterview,
+  generateInterviewFeedback,
+  retakeInterview,
+} from '../api/interviews.js'
 import { StatusPill } from '../components/StatusPill.jsx'
 import { BlockError } from '../components/States.jsx'
 import { RowsSkeleton } from '../components/Skeletons.jsx'
@@ -192,6 +197,23 @@ export default function Report() {
     }
   }
 
+  // Retake from this report: a fresh PENDING attempt with the same saved
+  // configuration; this attempt is left untouched.
+  const navigate = useNavigate()
+  const [retaking, setRetaking] = useState(false)
+  const [retakeError, setRetakeError] = useState('')
+  async function handleRetake() {
+    setRetakeError('')
+    setRetaking(true)
+    try {
+      const res = await retakeInterview(id)
+      navigate(`/interviews/${res.interview.id}`)
+    } catch (err) {
+      setRetakeError(err.message || 'Could not start the retake. Try again.')
+      setRetaking(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="space-y-6 pt-8">
@@ -239,15 +261,40 @@ export default function Report() {
           </p>
         </div>
         <div className="print:hidden">
-          <button
-            type="button"
-            onClick={() => window.print()}
-            className="inline-flex h-9 items-center gap-2 rounded-[6px] border border-control bg-surface px-4 text-sm text-ink hover:bg-raised"
-          >
-            <Printer size={16} strokeWidth={2} aria-hidden="true" />
-            Print / Save as PDF
-          </button>
-          <p className="mt-1.5 max-w-[260px] text-xs text-muted">
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {completed && (
+              <>
+                <Link
+                  to={`/interviews/${id}/compare`}
+                  className="inline-flex h-9 items-center rounded-[6px] border border-control bg-surface px-4 text-sm text-ink hover:bg-raised"
+                >
+                  Compare attempts
+                </Link>
+                <button
+                  type="button"
+                  onClick={handleRetake}
+                  disabled={retaking}
+                  className="inline-flex h-9 items-center rounded-[6px] bg-primary px-4 text-sm font-medium text-white hover:opacity-90 disabled:opacity-60"
+                >
+                  {retaking ? 'Retaking…' : 'Retake interview'}
+                </button>
+              </>
+            )}
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="inline-flex h-9 items-center gap-2 rounded-[6px] border border-control bg-surface px-4 text-sm text-ink hover:bg-raised"
+            >
+              <Printer size={16} strokeWidth={2} aria-hidden="true" />
+              Print / Save as PDF
+            </button>
+          </div>
+          {retakeError && (
+            <p role="alert" className="mt-1.5 text-right text-xs text-negative">
+              {retakeError}
+            </p>
+          )}
+          <p className="mt-1.5 max-w-[260px] text-right text-xs text-muted">
             Opens your browser's print dialog. Choose "Save as PDF" there to export this report.
           </p>
         </div>

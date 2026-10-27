@@ -11,6 +11,7 @@ import NewInterview from './pages/NewInterview.jsx'
 import InterviewSession from './pages/InterviewSession.jsx'
 import Report from './pages/Report.jsx'
 import History from './pages/History.jsx'
+import Compare from './pages/Compare.jsx'
 import Profile from './pages/Profile.jsx'
 
 // A data router (not <BrowserRouter>) so the session screen can block
@@ -44,6 +45,7 @@ export const router = createBrowserRouter([
       { path: '/interviews/new', element: <NewInterview /> },
       { path: '/interviews/:id', element: <InterviewSession /> },
       { path: '/interviews/:id/report', element: <Report /> },
+      { path: '/interviews/:id/compare', element: <Compare /> },
       { path: '/analytics', element: <Analytics /> },
       { path: '/history', element: <History /> },
       { path: '/profile', element: <Profile /> },

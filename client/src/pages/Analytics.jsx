@@ -3,7 +3,6 @@ import { getInterviewAnalytics } from '../api/interviews.js'
 import { useAsync } from '../hooks/useAsync.js'
 import { KpiSkeleton, RowsSkeleton } from '../components/Skeletons.jsx'
 import { EmptyState, BlockError } from '../components/States.jsx'
-import { ScoreTrendChart } from '../components/ScoreTrendChart.jsx'
 
 // Personal analytics over persisted evaluations. Honest by construction:
 // the skill axes are the ones the data actually has — interview overalls on
@@ -112,6 +111,88 @@ function TopicBars({ topics, strongest, weakest }) {
         </li>
       ))}
     </ul>
+  )
+}
+
+// Progress tracking across attempts: per-topic first vs latest, recurring
+// weak skills, and the next focus. Every claim names its baseline — the
+// server only produces a direction when a topic appears in >= 2 scored
+// interviews, and this section says so rather than implying a trend.
+function signed(n) {
+  return n > 0 ? `+${n.toFixed(1)}` : n.toFixed(1)
+}
+
+const DIRECTION = {
+  IMPROVED: { word: 'up', class: 'text-positive' },
+  DECLINED: { word: 'down', class: 'text-negative' },
+  FLAT: { word: 'level', class: 'text-muted' },
+}
+
+function ProgressAcrossAttempts({ a }) {
+  const avgByTopic = new Map(a.topics.map((t) => [t.topic, t.avgScore]))
+
+  return (
+    <section className="rounded-[8px] border border-line bg-surface">
+      <div className="px-5 py-4">
+        <h2 className="text-base font-medium text-ink">Progress across attempts</h2>
+        <p className="mt-1 text-xs text-muted">
+          {a.nextFocus
+            ? `Next focus: ${a.nextFocus.topic} averaged ${a.nextFocus.avgScore.toFixed(1)} in your most recent scored interview.`
+            : 'Finish another scored interview to get a next-focus suggestion.'}
+          {' '}Trends compare the same topic across attempts; attempts may differ in role or difficulty.
+        </p>
+      </div>
+      <div className="px-5 pb-5">
+        {a.topicTrends.length === 0 ? (
+          <p className="pb-2 text-sm text-muted">
+            No topic has evaluated answers in two or more scored interviews yet, so no per-topic
+            trend is claimed.
+          </p>
+        ) : (
+          <ul className="space-y-3.5" aria-label="Score change per topic across attempts">
+            {a.topicTrends.map((t) => {
+              const dir = DIRECTION[t.direction] ?? DIRECTION.FLAT
+              return (
+                <li key={t.topic} className="flex items-baseline justify-between gap-3">
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm text-ink">{t.topic}</span>
+                    <span className="mt-0.5 block text-xs text-muted tnum">
+                      first {t.firstAvg.toFixed(1)} → latest {t.latestAvg.toFixed(1)} · {t.interviews}{' '}
+                      interviews
+                    </span>
+                  </span>
+                  <span className={`flex-none text-sm tnum ${dir.class}`}>
+                    {signed(t.delta)} <span className="text-xs font-normal">{dir.word}</span>
+                  </span>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+
+        <div className="mt-5">
+          <h3 className="text-sm font-medium text-ink">Recurring weak skills</h3>
+          {a.recurringWeak.length > 0 ? (
+            <ul className="mt-2 space-y-1.5">
+              {a.recurringWeak.map((topic) => (
+                <li key={topic} className="flex items-baseline justify-between gap-3 text-sm">
+                  <span className="text-ink">{topic}</span>
+                  <span className="text-muted tnum">
+                    averaging {avgByTopic.get(topic)?.toFixed(1) ?? '—'} across attempts
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-1.5 text-sm text-muted">
+              {a.topicTrends.length > 0
+                ? 'No topic averages below 70 across two or more scored interviews.'
+                : 'Flagged here once a topic stays below 70 across two or more scored interviews.'}
+            </p>
+          )}
+        </div>
+      </div>
+    </section>
   )
 }
 
@@ -252,6 +333,8 @@ export default function Analytics() {
               <TopicBars topics={a.topics} strongest={a.strongest} weakest={a.weakest} />
             </div>
           </section>
+
+          <ProgressAcrossAttempts a={a} />
 
           {a.strongest && a.weakest && a.strongest !== a.weakest && (
             <p className="text-sm text-muted">

@@ -16,6 +16,7 @@ import { transcribeInterviewAudio } from "../services/transcription.service.js";
 import { generateQuestionSpeech, speechRequestSchema } from "../services/speech.service.js";
 import { generateFollowUp } from "../services/followup.service.js";
 import { generateInterviewFeedback } from "../services/feedback.service.js";
+import { retakeInterview, compareInterviews } from "../services/interview.service.js";
 import { z } from "zod";
 
 // POST /api/interviews — owner derived from the session, never the body.
@@ -176,4 +177,24 @@ async function feedback(req, res, next) {
   }
 }
 
-export { create, list, detail, stats, analytics, start, session, answer, complete, evaluate, results, transcribe, speech, followup, feedback };
+// POST /:id/retake — new PENDING attempt from this interview's saved config.
+async function retake(req, res, next) {
+  try {
+    const interview = await retakeInterview(req.user.id, req.params.id);
+    res.status(201).json({ interview });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// GET /:id/compare?with=<otherId> — two owned completed attempts, honestly caveated.
+async function compare(req, res, next) {
+  try {
+    const result = await compareInterviews(req.user.id, req.params.id, req.query.with);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export { create, list, detail, stats, analytics, start, session, answer, complete, evaluate, results, transcribe, speech, followup, feedback, retake, compare };

@@ -41,8 +41,16 @@ export async function createInterview(userId, config) {
   return withScore(interview);
 }
 
-export async function listInterviews(userId, { page, pageSize }) {
+export async function listInterviews(userId, { page, pageSize, status, role, from, to }) {
+  // Filters are validated by the query schema; all scoping stays on userId.
   const where = { userId };
+  if (status) where.status = status;
+  if (role) where.roleTitle = { contains: role, mode: 'insensitive' };
+  if (from || to) {
+    where.createdAt = {};
+    if (from) where.createdAt.gte = from;
+    if (to) where.createdAt.lte = to;
+  }
   const [total, interviews] = await Promise.all([
     prisma.interview.count({ where }),
     prisma.interview.findMany({
@@ -161,6 +169,67 @@ export async function getInterviewAnalytics(userId) {
     }))
     .sort((a, b) => b.avgScore - a.avgScore);
 
+  // Progress tracking: per-topic first vs latest score, using interview
+  // completion order. Only topics with evaluated answers in at least two
+  // scored interviews produce a direction; single appearances are excluded
+  // so no trend is claimed from one data point.
+  const topicByInterview = new Map(); // topic -> Map(interviewId -> {sum,n,completedAt})
+  const interviewOrder = new Map(completedInterviews.map((iv, i) => [iv.id, i]));
+  for (const a of evaluatedAnswers) {
+    const ivIdx = interviewOrder.get(a.interviewId);
+    if (ivIdx === undefined) continue; // answer in a non-completed interview
+    const topic = a.question.topic;
+    const m = topicByInterview.get(topic) ?? new Map();
+    const e = m.get(a.interviewId) ?? { sum: 0, n: 0, ivIdx };
+    e.sum += a.evaluation.score;
+    e.n += 1;
+    m.set(a.interviewId, e);
+    topicByInterview.set(topic, m);
+  }
+  const topicTrends = [...topicByInterview.entries()]
+    .filter(([_, m]) => m.size >= 2) // need >= 2 scored interviews per topic
+    .map(([topic, m]) => {
+      const ordered = [...m.entries()].sort((x, y) => x[1].ivIdx - y[1].ivIdx);
+      const first = ordered[0][1];
+      const latest = ordered[ordered.length - 1][1];
+      const firstAvg = round1(first.sum / first.n);
+      const latestAvg = round1(latest.sum / latest.n);
+      return {
+        topic,
+        interviews: m.size,
+        firstAvg,
+        latestAvg,
+        delta: round1(latestAvg - firstAvg),
+        direction: latestAvg > firstAvg ? 'IMPROVED' : latestAvg < firstAvg ? 'DECLINED' : 'FLAT',
+      };
+    })
+    .sort((a, b) => a.delta - b.delta);
+
+  // Recurring weak skills: weak (avg < 70) across >= 2 scored interviews.
+  const recurringWeak = topics.filter(
+    (t) => t.avgScore < 70 && (topicByInterview.get(t.topic)?.size ?? 0) >= 2,
+  ).map((t) => t.topic);
+
+  // Next focus: the weakest topic from the most recent scored interview.
+  const latestScored = [...completedInterviews]
+    .filter((iv) => perInterview.has(iv.id))
+    .sort((a, b) => b.completedAt - a.completedAt)[0];
+  let nextFocus = null;
+  if (latestScored) {
+    const m = new Map();
+    for (const a of evaluatedAnswers) {
+      if (a.interviewId !== latestScored.id) continue;
+      const t = m.get(a.question.topic) ?? { sum: 0, n: 0 };
+      t.sum += a.evaluation.score;
+      t.n += 1;
+      m.set(a.question.topic, t);
+    }
+    const latestTopics = [...m.entries()].map(([topic, t]) => ({ topic, avg: round1(t.sum / t.n) })).sort((x, y) => x.avg - y.avg);
+    if (latestTopics.length > 0 && latestTopics[0].avg < 100) {
+      nextFocus = { topic: latestTopics[0].topic, avgScore: latestTopics[0].avg };
+    }
+  }
+
   // Strongest/weakest only when the comparison is meaningful: at least two
   // topics with data.
   const strongest = topics.length >= 2 ? topics[0].topic : null;
@@ -178,6 +247,9 @@ export async function getInterviewAnalytics(userId) {
     verdicts,
     trend,
     topics,
+    topicTrends,
+    recurringWeak,
+    nextFocus,
     strongest,
     weakest,
   };
@@ -264,5 +336,140 @@ export async function getInterviewStats(userId) {
     answeredTotal,
     practiceMinutes,
     recentScores,
+  };
+}
+
+// RETAKE: creates a fresh PENDING interview from an existing one's saved
+// configuration. The old attempt and everything hanging off it (questions,
+// answers, follow-ups, evaluations, report) are never touched. A 15-second
+// dedupe window on identical config + PENDING status makes accidental
+// double-clicks or network retries return the same new attempt instead of
+// creating duplicates; deliberately starting two identical configs after
+// that window is still allowed.
+const RETAKE_DEDUPE_WINDOW_MS = 15000;
+
+export async function retakeInterview(userId, interviewId) {
+  const source = await prisma.interview.findFirst({ where: { id: interviewId, userId } });
+  if (!source) throw new HttpError(404, "NOT_FOUND", "Interview not found.");
+
+  const dedupeCutoff = new Date(Date.now() - RETAKE_DEDUPE_WINDOW_MS);
+  const recentDuplicate = await prisma.interview.findFirst({
+    where: {
+      userId,
+      // Exclude the source itself: retaking a still-PENDING draft must
+      // create a new attempt, not return the draft.
+      id: { not: interviewId },
+      status: "PENDING",
+      createdAt: { gte: dedupeCutoff },
+      roleTitle: source.roleTitle,
+      experienceLevel: source.experienceLevel,
+      interviewType: source.interviewType,
+      difficulty: source.difficulty,
+      mode: source.mode,
+      questionCount: source.questionCount,
+      durationMinutes: source.durationMinutes,
+    },
+    orderBy: { createdAt: "desc" },
+  });
+  if (recentDuplicate) return recentDuplicate;
+
+  // Never copy questions, answers, evaluations or the report — only the
+  // configuration the candidate chose.
+  return prisma.interview.create({
+    data: {
+      userId,
+      roleTitle: source.roleTitle,
+      experienceLevel: source.experienceLevel,
+      interviewType: source.interviewType,
+      difficulty: source.difficulty,
+      mode: source.mode,
+      topics: source.topics,
+      questionCount: source.questionCount,
+      durationMinutes: source.durationMinutes,
+      status: "PENDING",
+    },
+    select: INTERVIEW_SELECT,
+  });
+}
+
+// COMPARE: two completed, owned attempts side by side. Comparability is
+// derived from the persisted configurations and reported honestly — the
+// score deltas are shown with caveats when the attempts differ.
+export async function compareInterviews(userId, interviewId, otherId) {
+  if (interviewId === otherId) {
+    throw new HttpError(422, "SAME_INTERVIEW", "Pick two different interviews to compare.");
+  }
+  const ids = [interviewId, otherId];
+  const rows = await prisma.interview.findMany({
+    where: { id: { in: ids }, userId, status: "COMPLETED" },
+    include: {
+      questions: {
+        orderBy: [{ questionOrder: "asc" }, { isFollowUp: "asc" }, { followUpIndex: "asc" }],
+        select: {
+          questionOrder: true, isFollowUp: true, followUpIndex: true,
+          topic: true, text: true,
+          answer: { select: { evaluation: { select: { score: true } } } },
+        },
+      },
+    },
+  });
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  for (const id of ids) {
+    if (!byId.has(id)) throw new HttpError(404, "NOT_FOUND", "Interview not found (or not completed).");
+  }
+
+  const summarize = (row) => {
+    const scores = row.questions
+      .map((q) => q.answer?.evaluation?.score)
+      .filter((v) => typeof v === "number");
+    const byTopic = new Map();
+    for (const q of row.questions) {
+      const score = q.answer?.evaluation?.score;
+      if (typeof score !== "number") continue;
+      const t = byTopic.get(q.topic) ?? { sum: 0, n: 0 };
+      t.sum += score;
+      t.n += 1;
+      byTopic.set(q.topic, t);
+    }
+    const topicScores = [...byTopic.entries()]
+      .map(([topic, t]) => ({ topic, answered: t.n, avgScore: Math.round((t.sum / t.n) * 10) / 10 }))
+      .sort((a, b) => b.avgScore - a.avgScore);
+    return {
+      id: row.id,
+      roleTitle: row.roleTitle,
+      experienceLevel: row.experienceLevel,
+      interviewType: row.interviewType,
+      difficulty: row.difficulty,
+      topics: row.topics,
+      completedAt: row.completedAt,
+      questionCount: row.questionCount,
+      avgScore: scores.length === 0 ? null : Math.round((scores.reduce((a, b) => a + b, 0) / scores.length) * 10) / 10,
+      evaluatedCount: scores.length,
+      topicScores,
+    };
+  };
+
+  const a = summarize(byId.get(interviewId));
+  const b = summarize(byId.get(otherId));
+
+  // Honest comparability: what matches and what differs between the two runs.
+  const sameRole = a.roleTitle === b.roleTitle;
+  const sameType = a.interviewType === b.interviewType;
+  const sameDifficulty = a.difficulty === b.difficulty;
+  const sharedTopics = a.topics.filter((t) => b.topics.includes(t));
+  const bOnlyTopics = b.topics.filter((t) => !a.topics.includes(t));
+  const aOnlyTopics = a.topics.filter((t) => !b.topics.includes(t));
+
+  return {
+    a,
+    b,
+    comparability: {
+      sameRole,
+      sameType,
+      sameDifficulty,
+      sharedTopics,
+      differingTopics: { onlyInFirst: aOnlyTopics, onlyInSecond: bOnlyTopics },
+      comparable: sameRole && sameType && sameDifficulty && sharedTopics.length > 0,
+    },
   };
 }
